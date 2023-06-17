@@ -8,7 +8,4 @@ Analysis supporting the results documented in the paper are presented as R-markd
 These files pertain to the analysis presented in;
 ....
 
-All associated data can be found in the folder "Data", while the "Analysis" folder contains R code required to re-run all analysis related to multi-dimentional datasets (Airway bacteriome and Mouse RNAseq transcriptome).
-
-
-*All raw sequencing and metabolomics data described in the manuscript are accessible at the links below:*<br>
+All associated data can be found in the folder "Data", while the "Analysis" folder contains R code required to re-run all analyses.
