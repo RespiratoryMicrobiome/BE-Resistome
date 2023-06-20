@@ -1,0 +1,202 @@
+setwd("C:/Users/mmaca/Code/git/BE-Resistome")
+
+---
+title: "Main_Figure_2"
+author: "Micheál Mac Aogáin"
+date: "2023-06-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load required R packages
+```{r, warning = FALSE, message = FALSE}
+#Load packages
+if(!require("pacman")) install.packages("pacman")
+pacman::p_load(pacman, ggplot2, tidyverse, tidyr, lubridate, data.table, tsibble, wesanderson, reticulate, SNFtool, funrar, vegan, dunn.test, ggpubr, Hmisc, RColorBrewer, phyloseq, dplyr, reshape2, forcats, colorspace, pheatmap)
+```
+
+#Load data
+```{r, warning = FALSE}
+##Master data cross-sectional####
+Master <-read.csv("../Data/R_input_files//Clinical_AMR_Microbiome.csv") %>%
+  as_tibble()
+Master$FEVfactor<-cut(Master$FEV1, breaks=c(0, 30, 50, 70, Inf))
+
+###wrangle AMR data ####
+AMRFam <- Master %>% #clinical variables + amr families
+  as_tibble() %>%
+  select(-29:-42,-64:-356)
+AMRFam$FEVfactor<-cut(AMRFam$FEV1,  breaks=c(0, 30, 50, 70, Inf))
+#set levels
+AMRFam$ExacerbatorState <- factor(AMRFam$ExacerbatorState, levels=c("NonEx", "Exacerbator", "FreqEx"))
+AMRFam$Country <- factor(AMRFam$Country, levels=c("SG", "KL", "DD", "MI"))
+AMRFam$Aetiology_short <- factor(AMRFam$Aetiology_short, levels=c("idiopathic", "postInfect", "postTB", "other"))
+AMRFam$SampleID <- factor(AMRFam$SampleID, levels = AMRFam$SampleID[order(AMRFam$SC_AMR_alt)])
+AMRFam$FEVfactor<-fct_rev(AMRFam$FEVfactor)
+AMRFam <- AMRFam %>%
+  gather(Resistome, RPKM, starts_with(c("Acridine.dye", "Aminocoumarin.antibiotic", "Aminoglycoside", "Antibacterial.free.fatty.acids", "Beta.lactam", "Bicyclomycin", "Diaminopyrimidine", "Fluoroquinolone", "Fosfomycin", "Fusidic.acid", "MLS", "Multidrug", "Mupirocin", "Nitroimidazole.antibiotic", "Nucleoside.antibiotic", "Peptide.antibiotic", "Phenicol", "Rifampicin", "Sulfonamide.antibiotic", "Tetracycline", "Triclosan")), -SampleID, -Country, -Continent, -Matching, -Paired, -Trio, -Age, -Sex..Male.0..Female.1., -Exacerbations, -ExacerbatorState, -FEV1, -BSI, -ICS.use, -BMI, -Aetiology, -Aetiology_short, -MMRC.score, -SC_AMR_alt, -FEVfactor)
+
+AMRFam$CTRL<-ifelse(is.na(AMRFam$BSI), "CTRL", "PATIENT")
+```
+
+#Figure 2
+```{r, warning = FALSE, message = FALSE}
+##1. Exacerbation_Resistome###
+Exacerbation_Resistome<-ggplot(data=AMRFam[which(is.na(AMRFam$Severity) == FALSE),],aes(x=ExacerbatorState, y=RPKM, fill=Resistome))+
+  geom_bar(aes(), stat="identity", position = "fill") +
+  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
+  scale_y_continuous(labels = scales::percent)+
+  scale_x_discrete(labels = c('N.Ex (0)','Ex (1-2)', 'F.Ex (3+)'))+
+  theme(legend.position="right",
+        #axis.text=element_blank(),
+        axis.title=element_blank(),
+        #axis.title=element_text(size=14),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 90),
+        panel.background = element_rect(fill = NA),
+        axis.line = element_line(size = 0.5, colour = "black"),
+        legend.title = element_blank(),
+        legend.text = element_text(face = "italic"))+ 
+  guides(fill=guide_legend(nrow=2), size = .1)+
+  xlab("")+
+  ylab("Relative abundance (%)")+
+  #facet_wrap(~BphageFamMT$Continent, scales="free_x")+
+  theme(
+    strip.background = element_rect(
+      color="white", fill="white", size=1, linetype="solid"),
+    strip.text.x = element_text(size = 12)
+  )
+
+##1. FEv1###
+AMRFamMTfev<-subset(AMRFam, FEVfactor != "NA")
+FEV1amr<-ggplot(data=AMRFamMTfev,aes(x=FEVfactor, y=RPKM, fill=Resistome))+
+  geom_bar(aes(), stat="identity", position = "fill") +
+  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
+  scale_y_continuous(labels = scales::percent)+
+  scale_x_discrete(labels = c('>70%','50-70%','30-50%','<30%'))+
+  theme(legend.position="right",
+        #axis.text=element_blank(),
+        axis.title=element_blank(),
+        #axis.title=element_text(size=14),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 90),
+        panel.background = element_rect(fill = NA),
+        axis.line = element_line(size = 0.5, colour = "black"),
+        legend.title = element_blank(),
+        legend.text = element_text(face = "italic"))+ 
+  guides(fill=guide_legend(nrow=2), size = .1)+
+  xlab("")+
+  ylab("Relative abundance (%)")+
+  #facet_wrap()+
+  theme(
+    strip.background = element_rect(
+      color="white", fill="white", size=1, linetype="solid"),
+    strip.text.x = element_text(size = 12)
+  )
+
+##4. Severity_Resistome####
+Severity_Resistome<-ggplot(data=AMRFam[which(is.na(AMRFam$Severity) == FALSE),],aes(x=Severity, y=RPKM, fill=Resistome))+
+  geom_bar(aes(), stat="identity", position = "fill") +
+  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
+  scale_y_continuous(labels = scales::percent)+
+  theme(legend.position="right",
+        #axis.text=element_blank(),
+        axis.title=element_blank(),
+        #axis.title=element_text(size=14),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 90),
+        panel.background = element_rect(fill = NA),
+        axis.line = element_line(size = 0.5, colour = "black"),
+        legend.title = element_blank(),
+        legend.text = element_text(face = "italic"))+ 
+  guides(fill=guide_legend(nrow=2), size = .1)+
+  xlab("")+
+  ylab("Relative abundance (%)")+
+  #facet_wrap(~BphageFamMT$Continent, scales="free_x")+
+  theme(
+    strip.background = element_rect(
+      color="white", fill="white", size=1, linetype="solid"),
+    strip.text.x = element_text(size = 12)
+  )
+
+##4. Aetiology_Resistome ####
+Aetiology_Resistome_Fig3<-ggplot(data=AMRFam[which(is.na(AMRFam$Severity) == FALSE),],aes(x=Aetiology_short, y=RPKM, fill=Resistome))+
+  geom_bar(aes(), stat="identity", position = "fill") +
+  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
+  scale_y_continuous(labels = scales::percent)+
+  scale_x_discrete(labels = c('IP','PI', 'PTB', "other"))+
+  theme(legend.position="none",
+        #axis.text=element_blank(),
+        axis.title=element_blank(),
+        #axis.title=element_text(size=14),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 90),
+        panel.background = element_rect(fill = NA),
+        axis.line = element_line(size = 0.5, colour = "black"),
+        legend.title = element_blank(),
+        legend.text = element_text(face = "italic"))+ 
+  guides(fill=guide_legend(nrow=2), size = .1)+
+  xlab("")+
+  ylab("Relative abundance (%)")+
+  #facet_grid(~AMRFam$Country, scales="free_x")+
+  theme(
+    strip.background = element_rect(
+      color="white", fill="white", size=1, linetype="solid"),
+    strip.text.x = element_text(size = 12)
+  )
+Figure_2<-ggarrange(#Geography_Resistome, 
+  Exacerbation_Resistome, 
+  FEV1amr,
+  Severity_Resistome, 
+  Aetiology_Resistome_Fig3, 
+  #Microbiology_Resistome, 
+  #Antibiotics_Resistome, 
+  font.label = list(size = 5),
+  common.legend = TRUE, legend = "bottom", nrow = 1 ) 
+Figure_2
+
+library(broom)
+#unmatched n=251
+cohort<-subset(Master, is.na(Master$SC_AMR_alt) == FALSE & Matching == "Matched")
+
+#FEVfactor
+df2 <- cohort %>% 
+  select(1:28,43:63,356) %>%
+  gather(key, value, -FEVfactor) %>% 
+  group_by(key) %>% 
+  do(tidy(kruskal.test(x= .$value, g = .$FEVfactor)))
+df_FEV1 <- df2[df2$key %in% colnames(cohort[43:63]), ]
+df_FEV1$FDR<-p.adjust(df_FEV1$p.value, n=21, method = "fdr")
+
+#exacerbations
+df2 <- cohort %>% 
+  select(1:28,43:63,356) %>%
+  gather(key, value, -ExacerbatorState) %>% 
+  group_by(key) %>% 
+  do(tidy(kruskal.test(x= .$value, g = .$ExacerbatorState)))
+df_ExacerbatorState <- df2[df2$key %in% colnames(cohort[43:63]), ]
+df_ExacerbatorState$FDR<-p.adjust(df_ExacerbatorState$p.value, n=21, method = "fdr")
+
+#severity
+df2 <- cohort %>% 
+  select(1:28,43:63,356) %>%
+  gather(key, value, -Severity) %>% 
+  group_by(key) %>% 
+  do(tidy(kruskal.test(x= .$value, g = .$Severity)))
+df_Severity <- df2[df2$key %in% colnames(cohort[43:63]), ]
+df_Severity$FDR<-p.adjust(df_Severity$p.value, n=21, method = "fdr")
+
+#Aetiology
+df2 <- cohort %>% 
+  select(1:28,43:63,356) %>%
+  gather(key, value, -Aetiology_short) %>% 
+  group_by(key) %>% 
+  do(tidy(kruskal.test(x= .$value, g = .$Aetiology_short)))
+df_Aetiology_short <- df2[df2$key %in% colnames(cohort[43:63]), ]
+df_Aetiology_short$FDR<-p.adjust(df_Aetiology_short$p.value, n=21, method = "fdr")
+
+
+```
