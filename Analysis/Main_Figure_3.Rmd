@@ -1,23 +1,24 @@
-setwd("C:/Users/mmaca/Code/git/BE-Resistome")
-
 ---
-title: "Main_Figure_2"
+title: "Main_Figure_3"
 author: "Micheál Mac Aogáin"
 date: "2023-06-13"
 output: html_document
 ---
+#Load required R packages
+```{r, warning = FALSE, message = FALSE}
+# Load required R packages
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(ggplot2, tidyverse, vegan, vcd, knitr)
+```
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#Load required R packages
-```{r, warning = FALSE, message = FALSE}
-#Load packages
-if(!require("pacman")) install.packages("pacman")
-pacman::p_load(pacman, ggplot2, tidyverse, tidyr, lubridate, data.table, tsibble, wesanderson, reticulate, SNFtool, funrar, vegan, dunn.test, ggpubr, Hmisc, RColorBrewer, phyloseq, dplyr, reshape2, forcats, colorspace, pheatmap)
+#Figure 3A - Schematic illustration
+```{r label, out.width = "85%", fig.cap = ""}
+knitr::include_graphics("../Data/R_input_files/Figure3A_TJ_schematic.pdf")
 ```
-
 #Load data
 ```{r, warning = FALSE}
 ##Master data cross-sectional####
@@ -42,161 +43,119 @@ AMRFam <- AMRFam %>%
 AMRFam$CTRL<-ifelse(is.na(AMRFam$BSI), "CTRL", "PATIENT")
 ```
 
-#Figure 2
-```{r, warning = FALSE, message = FALSE}
-##1. Exacerbation_Resistome###
-Exacerbation_Resistome<-ggplot(data=AMRFam[which(is.na(AMRFam$Severity) == FALSE),],aes(x=ExacerbatorState, y=RPKM, fill=Resistome))+
-  geom_bar(aes(), stat="identity", position = "fill") +
-  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
-  scale_y_continuous(labels = scales::percent)+
-  scale_x_discrete(labels = c('N.Ex (0)','Ex (1-2)', 'F.Ex (3+)'))+
-  theme(legend.position="right",
-        #axis.text=element_blank(),
-        axis.title=element_blank(),
-        #axis.title=element_text(size=14),
-        #axis.text.x = element_blank(),
-        #axis.text.x = element_text(angle = 90),
-        panel.background = element_rect(fill = NA),
-        axis.line = element_line(size = 0.5, colour = "black"),
+
+#Figure 3B
+```{r, warning = FALSE}
+AMR_diversity <- Master %>%
+  as_tibble() %>%
+  select(1:1,64:314) #for genes
+  #select(1:1,43:63) #for amr drug class
+NAMES_list <- AMR_diversity$SampleID
+main_data <- AMR_diversity[AMR_diversity$SampleID %in% NAMES_list, ]
+AMR_diversity<-as.matrix(AMR_diversity)
+rownames(AMR_diversity) <- AMR_diversity[,1]
+AMR_diversity = as.data.frame(subset(AMR_diversity, select = -c(SampleID) ))
+AMR_diversity[] <- lapply(AMR_diversity, as.numeric)
+AMR_diversity<-AMR_diversity[row.names(AMR_diversity) != "TBS672", , drop = FALSE]
+isZero <- base::rowSums(AMR_diversity) == 0
+AMR_diversity<-AMR_diversity[!isZero,]
+
+MasterVIZ = Master
+MasterVIZ$select <- ifelse(MasterVIZ$SC_AMR_alt==0, "null", "Bronchiectasis")
+MasterVIZ$select <- ifelse(is.na(MasterVIZ$select), "Non-diseased", MasterVIZ$select)
+MasterVIZ$SC_AMR_alt <- ifelse(is.na(MasterVIZ$SC_AMR_alt), "Non-diseased", MasterVIZ$SC_AMR_alt)
+AMRDiversityViz<-subset(MasterVIZ, select != "null")
+AMRDiversityViz<-AMRDiversityViz[AMRDiversityViz$SampleID != "TBS153", , drop = FALSE] #remove for gene level analysis
+
+AMRDiversityViz_Geo<-subset(AMRDiversityViz, is.na(AMRDiversityViz$SC_AMR_alt) == FALSE & AMRDiversityViz$Matching == "Matched" )
+
+AMR_diversity <- AMR_diversity[ row.names(AMR_diversity) %in% AMRDiversityViz_Geo$SampleID, ]
+
+vegdist(AMR_diversity, "bray")-> Mbiome_PCoA
+as.matrix(Mbiome_PCoA)->Mbiome_PCoA
+BrayCurtMbiome=cmdscale(Mbiome_PCoA)
+#ordiplot (BrayCurtMbiome, display = 'species', type = 'text')
+BCords<-scores(BrayCurtMbiome)
+BCords<-(as.data.frame(t(BCords)))
+BCords<-as.data.frame(t(BCords))
+
+AMRDiversityViz_Geo$Dim1<-BCords$Dim1
+AMRDiversityViz_Geo$Dim2<-BCords$Dim2
+
+AMRDiversityViz_Geo$Country <- factor(AMRDiversityViz_Geo$Country, levels = c("SG", "KL", "DD", "MI"))
+AMRDiversityViz_Geo$Aetiology_short<- factor(AMRDiversityViz_Geo$Aetiology_short, levels=c("idiopathic", "postInfect", "postTB", "other"))
+
+##AMR PCOA of Resistotypes BY Country####
+gg <- data.frame(cluster=factor(AMRDiversityViz_Geo$Country), x=AMRDiversityViz_Geo$Dim1, y=AMRDiversityViz_Geo$Dim2, grp=AMRDiversityViz_Geo$Country)
+# calculate group centroid locations
+centroids <- aggregate(cbind(x,y)~cluster,data=gg,mean)
+# merge centroid locations into ggplot dataframe
+gg <- merge(gg,centroids,by="cluster",suffixes=c("",".centroid"))
+# generate star plot...
+PCA_Geo<-ggplot(gg) +
+  #scale_col_manual(values=c(16, 16, 16,16))+
+  scale_linetype_identity() +
+  geom_segment(aes(x=x.centroid, y=y.centroid, xend=x, yend=y, colour = cluster),alpha = 0.3)+
+  geom_point(aes(x=x,y=y, colour = cluster), size = 2, alpha = 0.5) + #can add ",shape = shape" in aes to introduce shape to points.
+  #geom_point(aes(x=x,y=y, colour = cluster, shape = shape), size = 2) +
+  geom_point(data=centroids, aes(x=x, y=y, color=cluster), size=5) +
+  geom_point(data=centroids, aes(x=x, y=y, color=cluster), size=5, shape = 13, colour = "black") +
+  scale_colour_manual(labels = c("Singapore", "Kuala Lumpur", "Dundee", "Milan"), values = c("#CD2C1E","#F7CD46","#2A64B7","#91C55A" ))+
+  labs(colour="",  
+       x = "PC 1 (23.8%)", y = "PC 2 (4.5%)")+
+  theme(legend.position=c(0.8,0.3),
         legend.title = element_blank(),
-        legend.text = element_text(face = "italic"))+ 
-  guides(fill=guide_legend(nrow=2), size = .1)+
-  xlab("")+
-  ylab("Relative abundance (%)")+
-  #facet_wrap(~BphageFamMT$Continent, scales="free_x")+
-  theme(
-    strip.background = element_rect(
-      color="white", fill="white", size=1, linetype="solid"),
-    strip.text.x = element_text(size = 12)
-  )
-
-##1. FEv1###
-AMRFamMTfev<-subset(AMRFam, FEVfactor != "NA")
-FEV1amr<-ggplot(data=AMRFamMTfev,aes(x=FEVfactor, y=RPKM, fill=Resistome))+
-  geom_bar(aes(), stat="identity", position = "fill") +
-  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
-  scale_y_continuous(labels = scales::percent)+
-  scale_x_discrete(labels = c('>70%','50-70%','30-50%','<30%'))+
-  theme(legend.position="right",
-        #axis.text=element_blank(),
-        axis.title=element_blank(),
-        #axis.title=element_text(size=14),
-        #axis.text.x = element_blank(),
-        #axis.text.x = element_text(angle = 90),
-        panel.background = element_rect(fill = NA),
         axis.line = element_line(size = 0.5, colour = "black"),
-        legend.title = element_blank(),
-        legend.text = element_text(face = "italic"))+ 
-  guides(fill=guide_legend(nrow=2), size = .1)+
-  xlab("")+
-  ylab("Relative abundance (%)")+
-  #facet_wrap()+
-  theme(
-    strip.background = element_rect(
-      color="white", fill="white", size=1, linetype="solid"),
-    strip.text.x = element_text(size = 12)
-  )
-
-##4. Severity_Resistome####
-Severity_Resistome<-ggplot(data=AMRFam[which(is.na(AMRFam$Severity) == FALSE),],aes(x=Severity, y=RPKM, fill=Resistome))+
-  geom_bar(aes(), stat="identity", position = "fill") +
-  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
-  scale_y_continuous(labels = scales::percent)+
-  theme(legend.position="right",
-        #axis.text=element_blank(),
-        axis.title=element_blank(),
-        #axis.title=element_text(size=14),
-        #axis.text.x = element_blank(),
-        #axis.text.x = element_text(angle = 90),
         panel.background = element_rect(fill = NA),
-        axis.line = element_line(size = 0.5, colour = "black"),
-        legend.title = element_blank(),
-        legend.text = element_text(face = "italic"))+ 
-  guides(fill=guide_legend(nrow=2), size = .1)+
+  )+
+  scale_y_reverse()+
   xlab("")+
-  ylab("Relative abundance (%)")+
-  #facet_wrap(~BphageFamMT$Continent, scales="free_x")+
-  theme(
-    strip.background = element_rect(
-      color="white", fill="white", size=1, linetype="solid"),
-    strip.text.x = element_text(size = 12)
-  )
+  ylab("")
+PCA_Geo
 
-##4. Aetiology_Resistome ####
-Aetiology_Resistome_Fig3<-ggplot(data=AMRFam[which(is.na(AMRFam$Severity) == FALSE),],aes(x=Aetiology_short, y=RPKM, fill=Resistome))+
-  geom_bar(aes(), stat="identity", position = "fill") +
-  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
-  scale_y_continuous(labels = scales::percent)+
-  scale_x_discrete(labels = c('IP','PI', 'PTB', "other"))+
-  theme(legend.position="none",
-        #axis.text=element_blank(),
-        axis.title=element_blank(),
-        #axis.title=element_text(size=14),
-        #axis.text.x = element_blank(),
-        #axis.text.x = element_text(angle = 90),
+#PERMANOVA Aetiology
+adonis2(AMR_diversity ~ Country, data=AMRDiversityViz_Geo, method="bray", permutations=999)
+
+```
+#Figure 3C
+```{r, warning = FALSE}
+##AMR PCOA of Resistotypes BY Aetiology####
+gg <- data.frame(cluster=factor(AMRDiversityViz_Geo$Aetiology_short), x=AMRDiversityViz_Geo$Dim1, y=AMRDiversityViz_Geo$Dim2, grp=AMRDiversityViz_Geo$Aetiology_short)
+# calculate group centroid locations
+centroids <- aggregate(cbind(x,y)~cluster,data=gg,mean)
+# merge centroid locations into ggplot dataframe
+gg <- merge(gg,centroids,by="cluster",suffixes=c("",".centroid"))
+# generate star plot...
+PCA_Aet<-ggplot(gg) +
+  #scale_col_manual(values=c(16, 16, 16,16))+
+  scale_linetype_identity() +
+  geom_segment(aes(x=x.centroid, y=y.centroid, xend=x, yend=y, colour = cluster),alpha = 0.3)+
+  geom_point(aes(x=x,y=y, colour = cluster), size = 2, alpha = 0.5) + #can add ",shape = shape" in aes to introduce shape to points.
+  #geom_point(aes(x=x,y=y, colour = cluster, shape = shape), size = 2) +
+  geom_point(data=centroids, aes(x=x, y=y, color=cluster), size=5) +
+  geom_point(data=centroids, aes(x=x, y=y, color=cluster), size=5, shape = 13, colour = "black") +
+  scale_colour_manual(labels = c("IP", "PI", "PTB", "Other"), values = c("#8300c4","#F26B38","#2F9599","grey" ))+
+  labs(colour="",  
+       x = "PC 1 (23.8%)", y = "PC 2 (4.5%)")+
+  theme(legend.position=c(0.7,0.3),
+        legend.title = element_blank(),
+        axis.line = element_line(size = 0.5, colour = "black"),
         panel.background = element_rect(fill = NA),
-        axis.line = element_line(size = 0.5, colour = "black"),
-        legend.title = element_blank(),
-        legend.text = element_text(face = "italic"))+ 
-  guides(fill=guide_legend(nrow=2), size = .1)+
+  )+
+  scale_y_reverse()+
   xlab("")+
-  ylab("Relative abundance (%)")+
-  #facet_grid(~AMRFam$Country, scales="free_x")+
-  theme(
-    strip.background = element_rect(
-      color="white", fill="white", size=1, linetype="solid"),
-    strip.text.x = element_text(size = 12)
-  )
-Figure_2<-ggarrange(#Geography_Resistome, 
-  Exacerbation_Resistome, 
-  FEV1amr,
-  Severity_Resistome, 
-  Aetiology_Resistome_Fig3, 
-  #Microbiology_Resistome, 
-  #Antibiotics_Resistome, 
-  font.label = list(size = 5),
-  common.legend = TRUE, legend = "bottom", nrow = 1 ) 
-Figure_2
+  ylab("")
+PCA_Aet
 
-library(broom)
-#unmatched n=251
-cohort<-subset(Master, is.na(Master$SC_AMR_alt) == FALSE & Matching == "Matched")
+#PERMANOVA Aetiology
+adonis2(AMR_diversity ~ Aetiology_short, data=AMRDiversityViz_Geo, method="bray", permutations=999)
 
-#FEVfactor
-df2 <- cohort %>% 
-  select(1:28,43:63,356) %>%
-  gather(key, value, -FEVfactor) %>% 
-  group_by(key) %>% 
-  do(tidy(kruskal.test(x= .$value, g = .$FEVfactor)))
-df_FEV1 <- df2[df2$key %in% colnames(cohort[43:63]), ]
-df_FEV1$FDR<-p.adjust(df_FEV1$p.value, n=21, method = "fdr")
+#INVESTIGATE COLINEARITY
+#Create a contingency table for 
+mytable <- table(AMRDiversityViz_Geo$Aetiology_short, AMRDiversityViz_Geo$Country)
+mytable
 
-#exacerbations
-df2 <- cohort %>% 
-  select(1:28,43:63,356) %>%
-  gather(key, value, -ExacerbatorState) %>% 
-  group_by(key) %>% 
-  do(tidy(kruskal.test(x= .$value, g = .$ExacerbatorState)))
-df_ExacerbatorState <- df2[df2$key %in% colnames(cohort[43:63]), ]
-df_ExacerbatorState$FDR<-p.adjust(df_ExacerbatorState$p.value, n=21, method = "fdr")
-
-#severity
-df2 <- cohort %>% 
-  select(1:28,43:63,356) %>%
-  gather(key, value, -Severity) %>% 
-  group_by(key) %>% 
-  do(tidy(kruskal.test(x= .$value, g = .$Severity)))
-df_Severity <- df2[df2$key %in% colnames(cohort[43:63]), ]
-df_Severity$FDR<-p.adjust(df_Severity$p.value, n=21, method = "fdr")
-
-#Aetiology
-df2 <- cohort %>% 
-  select(1:28,43:63,356) %>%
-  gather(key, value, -Aetiology_short) %>% 
-  group_by(key) %>% 
-  do(tidy(kruskal.test(x= .$value, g = .$Aetiology_short)))
-df_Aetiology_short <- df2[df2$key %in% colnames(cohort[43:63]), ]
-df_Aetiology_short$FDR<-p.adjust(df_Aetiology_short$p.value, n=21, method = "fdr")
-
+# Compute the Cramer's V statistic
+assocstats(mytable)
 
 ```

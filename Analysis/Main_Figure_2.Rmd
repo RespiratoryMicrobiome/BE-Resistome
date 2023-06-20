@@ -1,5 +1,3 @@
-setwd("C:/Users/mmaca/Code/git/BE-Resistome")
-
 ---
 title: "Main_Figure_2"
 author: "Micheál Mac Aogáin"
@@ -15,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, warning = FALSE, message = FALSE}
 #Load packages
 if(!require("pacman")) install.packages("pacman")
-pacman::p_load(pacman, ggplot2, tidyverse, tidyr, lubridate, data.table, tsibble, wesanderson, reticulate, SNFtool, funrar, vegan, dunn.test, ggpubr, Hmisc, RColorBrewer, phyloseq, dplyr, reshape2, forcats, colorspace, pheatmap)
+pacman::p_load(pacman, ggplot2, tidyverse, tidyr, lubridate, data.table, tsibble, wesanderson, reticulate, SNFtool, funrar, vegan, dunn.test, ggpubr, Hmisc, RColorBrewer, phyloseq, dplyr, reshape2, forcats, colorspace, pheatmap, broom)
 ```
 
 #Load data
@@ -44,10 +42,13 @@ AMRFam$CTRL<-ifelse(is.na(AMRFam$BSI), "CTRL", "PATIENT")
 
 #Figure 2
 ```{r, warning = FALSE, message = FALSE}
+##1. Colour scheme AMR. 
+AMR.col.scheme=c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73")
+
 ##1. Exacerbation_Resistome###
 Exacerbation_Resistome<-ggplot(data=AMRFam[which(is.na(AMRFam$Severity) == FALSE),],aes(x=ExacerbatorState, y=RPKM, fill=Resistome))+
   geom_bar(aes(), stat="identity", position = "fill") +
-  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
+  scale_fill_manual(values = AMR.col.scheme)+
   scale_y_continuous(labels = scales::percent)+
   scale_x_discrete(labels = c('N.Ex (0)','Ex (1-2)', 'F.Ex (3+)'))+
   theme(legend.position="right",
@@ -74,7 +75,7 @@ Exacerbation_Resistome<-ggplot(data=AMRFam[which(is.na(AMRFam$Severity) == FALSE
 AMRFamMTfev<-subset(AMRFam, FEVfactor != "NA")
 FEV1amr<-ggplot(data=AMRFamMTfev,aes(x=FEVfactor, y=RPKM, fill=Resistome))+
   geom_bar(aes(), stat="identity", position = "fill") +
-  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
+  scale_fill_manual(values = AMR.col.scheme)+
   scale_y_continuous(labels = scales::percent)+
   scale_x_discrete(labels = c('>70%','50-70%','30-50%','<30%'))+
   theme(legend.position="right",
@@ -100,7 +101,7 @@ FEV1amr<-ggplot(data=AMRFamMTfev,aes(x=FEVfactor, y=RPKM, fill=Resistome))+
 ##4. Severity_Resistome####
 Severity_Resistome<-ggplot(data=AMRFam[which(is.na(AMRFam$Severity) == FALSE),],aes(x=Severity, y=RPKM, fill=Resistome))+
   geom_bar(aes(), stat="identity", position = "fill") +
-  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
+  scale_fill_manual(values = AMR.col.scheme)+
   scale_y_continuous(labels = scales::percent)+
   theme(legend.position="right",
         #axis.text=element_blank(),
@@ -125,7 +126,7 @@ Severity_Resistome<-ggplot(data=AMRFam[which(is.na(AMRFam$Severity) == FALSE),],
 ##4. Aetiology_Resistome ####
 Aetiology_Resistome_Fig3<-ggplot(data=AMRFam[which(is.na(AMRFam$Severity) == FALSE),],aes(x=Aetiology_short, y=RPKM, fill=Resistome))+
   geom_bar(aes(), stat="identity", position = "fill") +
-  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
+  scale_fill_manual(values = AMR.col.scheme)+
   scale_y_continuous(labels = scales::percent)+
   scale_x_discrete(labels = c('IP','PI', 'PTB', "other"))+
   theme(legend.position="none",
@@ -158,7 +159,7 @@ Figure_2<-ggarrange(#Geography_Resistome,
   common.legend = TRUE, legend = "bottom", nrow = 1 ) 
 Figure_2
 
-library(broom)
+#Kruskal-Wallis analysis with FDR correction.
 #unmatched n=251
 cohort<-subset(Master, is.na(Master$SC_AMR_alt) == FALSE & Matching == "Matched")
 

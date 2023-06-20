@@ -1,0 +1,198 @@
+---
+title: "Main_Figure_6"
+author: "Micheál Mac Aogáin"
+date: "2023-06-13"
+output: html_document
+---
+#Knitr setup
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#Load required R packages
+```{r message=FALSE, warning=FALSE}
+# Load required R packages
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(ggplot2, tidyverse, vegan, vcd, knitr,funrar,pheatmap,colorspace,ggpubr,RColorBrewer, reshape2,phyloseq )
+```
+
+#Load and wrangle taxonomic data
+```{r, warning = FALSE, message = FALSE}
+#Figure 6A####
+MasterANDGK <-read.csv("../Data/R_input_files/MetaDataWsnfResults_GK_final.csv") 
+
+cohort<-subset(MasterANDGK, is.na(SC_AMR_alt) == FALSE & SC_AMR_alt !=0)
+cohort<-tail(cohort, n =8)
+cohort <- cohort %>% #clinical variables + amr families
+  as_tibble() %>%
+  select(-48:-373,-395:-686)
+cohort$PseuDOM<-ifelse(cohort$DomBactOth_short == "Pseudomonas", "Pseudomonas", "other")
+cohort$HaemDOM<-ifelse(cohort$DomBactOth_short == "Haemophilus", "Haemophilus", "other")
+cohort$FEVfactor<-cut(cohort$FEV1,  breaks=c(0, 30, 50, 70, Inf))
+cohort$AetiologyN3<-ifelse(cohort$Aetiology_short == "postTB", "postInfect", cohort$Aetiology_short)
+#set levels
+cohort$ExacerbatorState <- factor(cohort$ExacerbatorState, levels=c("NonEx", "Exacerbator", "FreqEx"))
+cohort$Country <- factor(cohort$Country, levels=c("SG", "KL", "DD", "MI"))
+cohort$Aetiology_short <- factor(cohort$Aetiology_short, levels=c("idiopathic", "postInfect", "postTB", "other"))
+cohort$DomBactOth_short <- factor(cohort$DomBactOth_short, levels=c("Pseudomonas", "Haemophilus", "Streptococcus", "other"))
+cohort$SampleID <- factor(cohort$SampleID, levels = cohort$SampleID[order(cohort$SC_V)])
+cohort$FEVfactor<-fct_rev(cohort$FEVfactor)
+cohort <- cohort %>% 
+  gather(Resistome, RPKM, Acridine.dye,Aminocoumarin.antibiotic,Aminoglycoside,Antibacterial.free.fatty.acids,Beta.lactam,Bicyclomycin,Diaminopyrimidine,Fluoroquinolone,Fosfomycin,Fusidic.acid,MLS,Multidrug,Mupirocin,Nitroimidazole.antibiotic,Nucleoside.antibiotic,Peptide.antibiotic,Phenicol,Rifampicin,Sulfonamide.antibiotic,Tetracycline,Triclosan, -SampleID, -Country,  -Continent, -Matching, -Paired, -Trio, -Age,-Sex..Male.0..Female.1.,-Exacerbations,-ExacerbatorState,  -FEV1,   -BSI, -ICS.use, -Oral.ab,   -BMI, -Aetiology, -Aetiology_short,-MMRC.score, -SC_V, -SC_AMR, -SC_snf_tuned, -SC_VAT_webtool, -SC_AMR_alt, -DomBactOth_short, -PseuDOM, -FEVfactor, -AetiologyN3)
+cohort$PseuDOM <- factor(cohort$PseuDOM, levels = c("Pseudomonas", "other"))
+cohort$HaemDOM <- factor(cohort$HaemDOM, levels = c("Haemophilus", "other"))
+cohort$AetiologyN3 <- factor(cohort$AetiologyN3, levels = c("idiopathic", "postInfect", "other"))
+# cohortMT<-subset(cohort, Matching == "Matched") #Matched data
+# cohortPR<-subset(cohort, Paired == "Pair")
+# cohortTR<-subset(cohort, Trio != "NonTrio")
+# cohortUM<-subset(cohort, Matching == "UnMatched")
+# cohort$CTRL<-ifelse(is.na(cohort$Age), "CTRL", "PATIENT")
+cohort$ReadsNonHuman <- factor(cohort$ReadsNonHuman, levels=c("Pre","Post"))
+
+#Plotting
+AMR_GK<-ggplot(data=cohort,aes(x=ReadsTrimmed, y=RPKM, fill=Resistome))+
+  geom_bar(aes(), stat="identity", position = "fill") +
+  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
+  scale_y_continuous(labels = scales::percent)+
+  #scale_x_discrete(labels = c('Non-diseased','Bronchiectasis'))+
+  theme(legend.position="right",
+        #axis.text=element_blank(),
+        #axis.title=element_blank(),
+        axis.title=element_text(size=14),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 90),
+        panel.background = element_rect(fill = NA),
+        axis.line = element_line(size = 0.5, colour = "black"),
+        legend.title = element_blank(),
+        legend.text = element_text(face = "italic", size = 9),
+        legend.key.height = unit(1.5, "mm"))+
+  guides(fill=guide_legend(ncol=1), size = .1)+
+  xlab("")+
+  ylab("Relative abundance (%)")+
+  facet_wrap(~cohort$ReadsNonHuman, scales="free_x")+
+  theme(
+    strip.background = element_rect(
+      color="white", fill="white", size=1, linetype="solid"),
+    #strip.text.x = element_blank()
+  )
+AMR_GK
+```
+#Loading
+```{r, warning = FALSE, message = FALSE}
+MasterGK <-read.csv("../Data/R_input_files/GK_master_Taxa25.csv") # Top 25 taxa
+
+AMRGK <- MasterGK %>%
+  as_tibble() %>%
+  select(1:50)
+AMR_cols<-colnames(AMRGK[14:39])
+AMRGK <- AMRGK %>% 
+  gather(AMR, RPKM, AMR_cols, -SampleSeqNo, -SputumSampleNo,  -TypeSamples, -TypeSamplesA,-TypeSamplesB,-Exacerbations,	-FEV1, -BSI,	-Severity, -WksToNxtEx,	-TmToNxtEx,	-Antibiotic,	-Antibiotic_class)
+
+AMRGK$AMR <- factor(AMRGK$AMR, levels = AMR_cols )
+AMRGK$TypeSamples <- factor(AMRGK$TypeSamples , levels = c("Pre", "Post"))
+AMRGK<-AMRGK[is.na(AMRGK$TypeSamples) != TRUE, , drop = FALSE]
+
+n <- 56
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+col_vector_spec<-replace(col_vector, 26, "grey") #
+
+TAXA_GK<-ggplot(data=AMRGK,aes(x=SputumSampleNo
+, y=RPKM, fill=AMR))+
+  scale_fill_manual(values = col_vector_spec) +
+  geom_bar(aes(), stat="identity", position = 'fill')+
+  scale_y_continuous(labels = scales::percent)+
+  #scale_x_discrete(labels = c('IP','PI', 'PTB', "other"))+
+  theme(legend.position="right",
+        #axis.text=element_blank(),
+        #axis.title=element_blank(),
+        axis.title=element_text(size=14),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 90),
+        panel.background = element_rect(fill = NA),
+        axis.line = element_line(size = 0.5, colour = "black"),
+        legend.title = element_blank(),
+        legend.text = element_text(face = "italic", size = 9),
+        legend.key.height = unit(1.5, "mm"))+
+  guides(fill=guide_legend(ncol=1), size = .1)+
+  xlab("")+
+  ylab("Relative abundance (%)")+
+  facet_wrap(~AMRGK$TypeSamples, scales="free_x")+
+  theme(
+    strip.background = element_rect(
+      color="white", fill="white", size=1, linetype="solid"),
+    #strip.text.x = element_blank()
+  )
+TAXA_GK
+```
+
+
+#Loading
+```{r, warning = FALSE, message = FALSE}
+Master <-read.csv("../Data/R_input_files/MetaDataWsnfResults_GK_final.csv") %>%
+  #Master <-read.csv("R_input_files/MetaDataWsnfResults_3.5temp_TJ.csv") %>% # v 3.3 includes raw read data, 3.4 includes info on paring and "trios"
+  as_tibble()
+
+AMR_diversity <- Master %>%
+  subset(is.na(SC_AMR_alt)==FALSE) %>%
+  as_tibble() %>%
+  select(1:1,395:645) #for genes
+#select(1:1,374:394) #for amr drug class
+NAMES_list <- AMR_diversity$SampleID
+main_data <- AMR_diversity[AMR_diversity$SampleID %in% NAMES_list, ]
+AMR_diversity<-as.matrix(AMR_diversity)
+rownames(AMR_diversity) <- AMR_diversity[,1]
+AMR_diversity = as.data.frame(subset(AMR_diversity, select = -c(SampleID) ))
+AMR_diversity[] <- lapply(AMR_diversity, as.numeric)
+AMR_diversity<-AMR_diversity[row.names(AMR_diversity) != "TBS672", , drop = FALSE]
+
+isZero <- base::rowSums(AMR_diversity) == 0
+AMR_diversity<-AMR_diversity[!isZero,]
+
+MasterVIZ = Master
+MasterVIZ <- MasterVIZ[ MasterVIZ$SampleID %in% row.names(AMR_diversity), ]
+
+vegdist(AMR_diversity, "bray")-> Mbiome_PCoA
+as.matrix(Mbiome_PCoA)->Mbiome_PCoA
+BrayCurtMbiome=cmdscale(Mbiome_PCoA)
+#ordiplot (BrayCurtMbiome, display = 'species', type = 'text')
+BCords<-scores(BrayCurtMbiome)
+BCords<-(as.data.frame(t(BCords)))
+BCords<-as.data.frame(t(BCords))
+
+MasterVIZ$Dim1<-BCords$Dim1
+MasterVIZ$Dim2<-BCords$Dim2
+
+MasterVIZ$Country <- factor(MasterVIZ$Country, levels = c("SG", "KL", "DD", "MI"))
+MasterVIZ$Aetiology_short<- factor(MasterVIZ$Aetiology_short, levels=c("idiopathic", "postInfect", "postTB", "other"))
+
+MasterVIZ$PrePost<-ifelse(MasterVIZ$ReadsNonHuman == "Pre","Pre",NA)
+MasterVIZ$PrePost<-ifelse(MasterVIZ$ReadsNonHuman == "Post","Post", MasterVIZ$PrePost)
+MasterVIZ$PrePost<-ifelse(is.na(MasterVIZ$PrePost) == TRUE, MasterVIZ$SC_AMR_alt, MasterVIZ$PrePost)
+
+gg <- data.frame(cluster=factor(MasterVIZ$PrePost), x=MasterVIZ$Dim1, y=MasterVIZ$Dim2, grp=MasterVIZ$SC_AMR_alt)
+# calculate group centroid locations
+centroids <- aggregate(cbind(x,y)~cluster,data=gg,mean)
+# merge centroid locations into ggplot dataframe
+gg <- merge(gg,centroids,by="cluster",suffixes=c("",".centroid"))
+# generate star plot...
+PA_erd_PCA<-ggplot(gg) +
+  #scale_col_manual(values=c(16, 16, 16,16))+
+  scale_linetype_identity() +
+  geom_segment(aes(x=x.centroid, y=y.centroid, xend=x, yend=y, colour = cluster),alpha = 0.3)+
+  geom_point(aes(x=x,y=y, colour = cluster), size = 2, alpha = 0.5) + #can add ",shape = shape" in aes to introduce shape to points.
+  #geom_point(aes(x=x,y=y, colour = cluster, shape = shape), size = 2) +
+  geom_point(data=centroids, aes(x=x, y=y, color=cluster), size=5) +
+  geom_point(data=centroids, aes(x=x, y=y, color=cluster), size=5, shape = 13, colour = "black") +
+  scale_colour_manual(values = c("#1800F5","#932DE7", "red", "green"), labels = c("RT1", "RT2", "Post-eradication", "Pre-eradication"))+
+  labs(colour="",  
+       x = "PC 1 (23.8%)", y = "PC 2 (4.5%)")+
+  theme(legend.position=c(0.3,0.3),
+        legend.title = element_blank(),
+        axis.line = element_line(size = 0.5, colour = "black"),
+        panel.background = element_rect(fill = NA),
+  )+
+  scale_y_reverse()+
+  scale_x_reverse()+
+  guides(colour = guide_legend(reverse = FALSE))
+PA_erd_PCA
+```
