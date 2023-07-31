@@ -10,7 +10,7 @@ setwd("C:/Users/mmaca/Code/git/BE-Resistome/Analysis/")
 if(!require("pacman")) install.packages("pacman")
 pacman::p_load(pacman, ggplot2, tidyverse, tidyr, lubridate, data.table, tsibble, wesanderson, reticulate, SNFtool, funrar, vegan, dunn.test, ggpubr, Hmisc, RColorBrewer, phyloseq, dplyr, reshape2, forcats, colorspace, pheatmap, fpc)
 
-#reticulate env set up for python. 
+#reticulate env set up for python. #tailor to local set up (Conda etc.)
 reticulate::use_python("C:/Users/mmaca/OneDrive/Documents/.virtualenvs/r-reticulate/Scripts/python.exe", required = TRUE)
 source("../Data/R_input_files/function_snf.R")
 source_python("../Data/R_input_files/sil.py")
@@ -58,6 +58,17 @@ BphageFam <- BphageFam %>%
 BphageFam$Virome <- factor(BphageFam$Virome, levels = c("Iridoviridae", "Siphoviridae","Myoviridae", "Phycodnaviridae","Polydnaviridae","Picornaviridae", "Poxviridae","Podoviridae","Nyamiviridae","Mimiviridae","Herpesviridae","Inoviridae","Alloherpesviridae", "Unassigned"))
 
 #Spectral clustering ####
+ab_data=make_relative(as.matrix(read.csv("../Data/R_input_files/AMR.csv", row.names = 1)))*100 #need to load processed AMR gene data
+ab_data[is.nan(ab_data)] <- 0
+ab_data<-as.data.frame(ab_data)
+#filter based on prevalence
+z=colSums(ab_data>0.1) #filter to reduced number of taxa 
+sel_col=row.names(as.data.frame(z[z>=(0.01*(nrow(ab_data)))])) #In 1% patients prevalent
+ab_data<-ab_data[sel_col]
+remove(sel_col,z)
+ab_data<-ab_data[rowSums(ab_data[, -1])>0, ] #drop no_res samples
+ab_data<-ab_data[row.names(ab_data) != "TBS672", , drop = FALSE] #detection of a single PatA gene in TBS672 creates a clustering artifact due to this 'outlier'
+
 #create vegdist similarity matrix
 ab_dsim=vegdist(ab_data,method='bray',diag=TRUE,upper=TRUE) 
 ab_dsim[is.nan(ab_dsim)]<-0 
