@@ -28,6 +28,7 @@ MetaG<-read.csv("../Data/R_input_files/CAMEB2_bacteria_top50.csv") %>%
 #Load Master datafile####
 Master <-read.csv("../Data/R_input_files/Clinical_AMR_Microbiome.csv") %>%
   as_tibble()
+
 MetaG$SC_AMR_alt<-Master[which(Master$Matching != "NA"),]$SC_AMR_alt
 MetaG$Reads<-Master[which(Master$Matching != "NA"),]$ReadsNonHuman
 MetaG$Aetiology_short<-Master[which(Master$Matching != "NA"),]$Aetiology_short
@@ -37,12 +38,6 @@ MetaG$Country <- factor(MetaG$Country, levels=c("SG", "KL", "DD", "MI"))
 MetaG$Aetiology_short <- factor(MetaG$Aetiology_short, levels =c("idiopathic", "postInfect", "postTB", "other"))
 
 MetaG<-melt(MetaG, id.vars = c("SampleID", "Country",  "Continent", "Matching","ExacerbatorState",  "FEV1",   "BSI", "ICS.use", "Oral.ab",   "BMI", "Aetiology", "MMRC.score" ,"DomSpAll", "DomBactOth","DomBactAll", "Reads", "Aetiology_short", "SC_AMR_alt"))
-#####################################################################################################
-#####################################################################################################
-#####################################################################################################
-#####################################################################################################
-#####################################################################################################
-MetaG$variable <- factor(gsub("\\.", " ", MetaG$variable), levels= gsub("\\.", " ", levels(MetaG$variable)))
 
 #cleaner but messes with colours.
 #MetaG_long <- MetaG %>%
@@ -168,12 +163,8 @@ Taxa_Geo_Fig5c
 ## BIPARTITE GRAPHS ####
 ### Species-AMR ####
 #### Project name and working directory ####
-library(phyloseq)
-library(ggplot2)
-library(tidyr)
-library(RColorBrewer)
 project_name <- "CAMEB2"
-wkdir <- file.path("../Data/R_input_files/Ivan_AMR_analysis_2020/", project_name)
+wkdir <- file.path("../Data/R_input_files/Ivan_AMR_analysis_2020", project_name)
 
 indir <- file.path(wkdir, "analysis", "AMR-CONTIGS", "unweighted-bacteria-phages-plasmids")
 outdir <- indir
@@ -232,13 +223,7 @@ colSpecies <- append((rep("gray40", nrow(data)-20)),rev(col_vector[1:20]))
 names(colSpecies) <- as.vector(data$Species[order(data$value)])
 colSpecies<-colSpecies[order(match(names(colSpecies),data$Species[order(data$Count)]))]
 
-colSpecies2 <- col_vector_spec[1:40]
-names(colSpecies2) <- levels(MetaG$variable)[1:40]
-colSpecies[intersect(names(colSpecies), names(colSpecies2))] <- colSpecies2[intersect(names(colSpecies), names(colSpecies2))] 
-setdiff(names(colSpecies), names(colSpecies2))
-#colSpecies["Esc... coli"] <- "..."
-#colSpecies["Esc... coli"] <- "..."
-#colSpecies["Esc... coli"] <- "..."
+
 
 ## Plotting
 p <- ggplot(data, aes(x=Species, y=Count, fill=Species)) + 
@@ -296,11 +281,6 @@ colAMR <- rep("gray40", nrow(data))
 names(colAMR) <- as.vector(data$AMR)
 colAMR[names(colTaxa)] <- colTaxa
 colAMR<-colAMR[order(match(names(colAMR),data$AMR[order(data$Count)]))]
-
-colAMR2 <- c("#5CA5DB", "#ffcccc", "#B60004", "#91CE59", "#fc8403", "#EBA5F3","#FFBC06","#3B3B3B","#2A2A73","#5D2E83") %>% set_names(c("Fluoroquinolone", "Tetracycline", "MLS", "Multidrug", "Beta-lactam", "Bicyclomycin","Peptide antibiotic","Phenicol","Triclosan", "Aminoglycoside"))
-colAMR2 <- sapply(1:length(colAMR), function(x) if (!gsub("\\)", "", gsub(".*\\(", "", names(colAMR)[x])) %in% names(colAMR2)) "grey30" else colAMR2[gsub("\\)", "", gsub(".*\\(", "", names(colAMR)[x]))])
-names(colAMR2) <- names(colAMR)
-colAMR <- colAMR2
 
 #data<-data[!grepl("Streptomyces rishiriensis parY", data$AMR),]
 
