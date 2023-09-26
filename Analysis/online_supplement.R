@@ -11,7 +11,10 @@ if(!require("pacman")) install.packages("pacman")
 pacman::p_load(pacman, ggplot2, tidyverse, tidyr, lubridate, data.table, tsibble, wesanderson, reticulate, SNFtool, funrar, vegan, dunn.test, ggpubr, Hmisc, RColorBrewer, phyloseq, dplyr, reshape2, forcats, colorspace, pheatmap, fpc)
 
 #reticulate env set up for python. #tailor to local set up (Conda etc.)
-reticulate::use_python("C:/Users/mmaca/OneDrive/Documents/.virtualenvs/r-reticulate/Scripts/python.exe", required = TRUE)
+#reticulate::use_python("C:/Users/mmaca/OneDrive/Documents/.virtualenvs/r-reticulate/Scripts/python.exe", required = TRUE)
+
+reticulate::use_python("/opt/homebrew/bin/python3", required = TRUE)
+
 source("../Data/R_input_files/function_snf.R")
 source_python("../Data/R_input_files/sil.py")
 
@@ -84,6 +87,36 @@ tuned_k<-which.max(sil_values)
 #assess clusters and grouping
 paste(tuned_k,sil_values[tuned_k],sep = " ")
 labels=spectralClustering(AB,tuned_k)
+lab=as.data.frame(labels,row.names = row.names(AB))
+
+#Calculate the robustness of clustering
+#Bootstrap-robustness test
+cluster<-function(W,indices,z=tuned_k){
+  W<-W[indices,indices]
+  labels=spectralClustering(W,z)
+  lab=as.data.frame(labels,row.names = row.names(W))
+  return(lab)
+}
+is.even <- function(x) x %% 2 == 0
+is.odd <- function(x) x %% 2 != 0
+
+misclassification_ratio=c()
+for (i in 1:100){
+  ind<-sample(row.names(AB),round(0.7*(dim(AB)[1])))
+  l=cluster(AB,ind)
+  com=merge(lab,l,by="row.names",all.y = TRUE);row.names(com)<-com$Row.names;com$Row.names<-NULL
+  if ( sum(is.odd(rowSums(com)))>sum(is.even(rowSums(com))) ) {
+    mis<-sum(is.even(rowSums(com)))
+  }
+  else{
+    mis<-sum(is.odd(rowSums(com)))
+  }
+  misclassification_ratio=c(misclassification_ratio,mis/(dim(com)[1]))
+}
+print("Robustness")
+print(1-mean(misclassification_ratio))
+
+
 labels <- max(labels)+1 - labels #aesthetic change: most prevalent label now assigned value = 1. 
 table(labels)
 #assigned labels
