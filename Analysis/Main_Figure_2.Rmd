@@ -162,6 +162,17 @@ Figure_2
 #Kruskal-Wallis analysis with FDR correction.
 #unmatched n=251
 cohort<-subset(Master, is.na(Master$SC_AMR_alt) == FALSE & Matching == "Matched")
+cohort<-Master
+cohort$Disease_state<-ifelse(cohort$Country == "CTRL", "CTRL", "BE")
+
+#FEVfactor
+df2 <- cohort %>% 
+  select(5,43:63,357) %>%
+  gather(key, value, -Disease_state) %>% 
+  group_by(key) %>% 
+  do(tidy(kruskal.test(x= .$value, g = .$Disease_state)))
+df_Disease_state <- df2[df2$key %in% colnames(cohort[43:63]), ]
+df_Disease_state$FDR<-p.adjust(df_Disease_state$p.value, n=21, method = "fdr")
 
 #FEVfactor
 df2 <- cohort %>% 
@@ -198,6 +209,15 @@ df2 <- cohort %>%
   do(tidy(kruskal.test(x= .$value, g = .$Aetiology_short)))
 df_Aetiology_short <- df2[df2$key %in% colnames(cohort[43:63]), ]
 df_Aetiology_short$FDR<-p.adjust(df_Aetiology_short$p.value, n=21, method = "fdr")
+
+#Country
+df2 <- cohort %>% 
+  select(1:28,43:63,356) %>%
+  gather(key, value, -Country) %>% 
+  group_by(key) %>% 
+  do(tidy(kruskal.test(x= .$value, g = .$Country)))
+df_Country <- df2[df2$key %in% colnames(cohort[43:63]), ]
+df_Country$FDR<-p.adjust(df_Country$p.value, n=21, method = "fdr")
 
 
 ```

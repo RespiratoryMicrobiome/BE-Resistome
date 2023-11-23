@@ -8,7 +8,8 @@ setwd("C:/Users/mmaca/Code/git/BE-Resistome/Analysis/")
 
 #Load packages
 if(!require("pacman")) install.packages("pacman")
-pacman::p_load(pacman, ggplot2, tidyverse, tidyr, lubridate, data.table, tsibble, wesanderson, reticulate, SNFtool, funrar, vegan, dunn.test, ggpubr, Hmisc, RColorBrewer, phyloseq, dplyr, reshape2, forcats, colorspace, pheatmap, fpc)
+pacman::p_load(pacman, ggplot2, tidyverse, tidyr, wesanderson, reticulate, vegan, dplyr, reshape2, RColorBrewer, phyloseq)
+
 
 #reticulate env set up for python. #tailor to local set up (Conda etc.)
 #reticulate::use_python("C:/Users/mmaca/OneDrive/Documents/.virtualenvs/r-reticulate/Scripts/python.exe", required = TRUE)
@@ -20,7 +21,7 @@ source_python("../Data/R_input_files/sil.py")
 
 #DATA####
 ##Master data####
-Master <-read.csv("../Data/R_input_files/Clinical_AMR_Microbiome.csv") %>%
+Master <-read.csv("../Data/R_input_files/Clinical_AMR_Microbiome_R2.csv") %>%
   as_tibble()
 Master$FEVfactor<-cut(Master$FEV1, breaks=c(0, 30, 50, 70, Inf))
 
@@ -39,7 +40,7 @@ AMRFam$Aetiology_short <- factor(AMRFam$Aetiology_short, levels=c("idiopathic", 
 AMRFam$SampleID <- factor(AMRFam$SampleID, levels = AMRFam$SampleID[order(AMRFam$SC_AMR_alt)])
 AMRFam$FEVfactor<-fct_rev(AMRFam$FEVfactor)
 AMRFam <- AMRFam %>% 
-  gather(Resistome, RPKM, Acridine.dye,Aminocoumarin.antibiotic,Aminoglycoside,Antibacterial.free.fatty.acids,Beta.lactam,Bicyclomycin,Diaminopyrimidine,Fluoroquinolone,Fosfomycin,Fusidic.acid,MLS,Multidrug,Mupirocin,Nitroimidazole.antibiotic,Nucleoside.antibiotic,Peptide.antibiotic,Phenicol,Rifampicin,Sulfonamide.antibiotic,Tetracycline,Triclosan, -SampleID, -Country,  -Continent, -Matching, -Paired, -Trio, -Age,-Sex..Male.0..Female.1.,-Exacerbations,-ExacerbatorState,  -FEV1,   -BSI, -ICS.use,   -BMI, -Aetiology, -Aetiology_short,-MMRC.score,-SC_AMR_alt, -FEVfactor)
+  gather(Resistome, RPKM, Acridine.dye,Aminocoumarin.antibiotic,Aminoglycoside,Antibacterial.free.fatty.acids,Beta.lactam,Bicyclomycin,Diaminopyrimidine,Fluoroquinolone,Fosfomycin,Fusidic.acid,MLS,Multidrug,Mupirocin,Nitroimidazole.antibiotic,Nucleoside.antibiotic,Peptide.antibiotic,Phenicol,Rifampicin,Sulfonamide.antibiotic,Tetracycline,Triclosan, -SampleID, -Country,  -Continent, -Matching, -Paired, -Trio, -Age,-Sex..Male.0..Female.1.,-Exacerbations,-ExacerbatorState,  -FEV1,   -BSI, -ICS.use,   -BMI, -Ethnicity, -Aetiology_short,-MMRC.score,-SC_AMR_alt, -FEVfactor)
 AMRFam$CTRL<-ifelse(is.na(AMRFam$Age), "CTRL", "PATIENT")
 
 ###wrangle Bphage data [family]####
@@ -56,12 +57,12 @@ BphageFam$SampleID <- factor(BphageFam$SampleID, levels = rev(BphageFam$SampleID
 
 #gather on data
 BphageFam <- BphageFam %>% 
-  gather(Virome, RPKM, Siphoviridae, Unassigned, Iridoviridae, Myoviridae, Phycodnaviridae, Polydnaviridae, Picornaviridae, Podoviridae, Poxviridae, Nyamiviridae, Mimiviridae, Herpesviridae, Inoviridae, Alloherpesviridae, -SampleID, -Country,  -Continent, -Matching, -Paired, -Trio, -Age,-Sex..Male.0..Female.1.,-Exacerbations,-ExacerbatorState,  -FEV1,   -BSI, -ICS.use,   -BMI, -Aetiology, -Aetiology_short,-MMRC.score,-SC_AMR_alt, -FEVfactor)
+  gather(Virome, RPKM, Siphoviridae, Unassigned, Iridoviridae, Myoviridae, Phycodnaviridae, Polydnaviridae, Picornaviridae, Podoviridae, Poxviridae, Nyamiviridae, Mimiviridae, Herpesviridae, Inoviridae, Alloherpesviridae, -SampleID, -Country,  -Continent, -Matching, -Paired, -Trio, -Age,-Sex..Male.0..Female.1.,-Exacerbations,-ExacerbatorState,  -FEV1,   -BSI, -ICS.use,   -BMI, -Ethnicity, -Aetiology_short,-MMRC.score,-SC_AMR_alt, -FEVfactor)
 #post gather level setting (required??)
 BphageFam$Virome <- factor(BphageFam$Virome, levels = c("Iridoviridae", "Siphoviridae","Myoviridae", "Phycodnaviridae","Polydnaviridae","Picornaviridae", "Poxviridae","Podoviridae","Nyamiviridae","Mimiviridae","Herpesviridae","Inoviridae","Alloherpesviridae", "Unassigned"))
 
 #Spectral clustering ####
-ab_data=make_relative(as.matrix(read.csv("../Data/R_input_files/AMR.csv", row.names = 1)))*100 #need to load processed AMR gene data
+ab_data=make_relative(as.matrix(read.csv("../Data/R_input_files/AMR_R1.csv", row.names = 1)))*100 #need to load processed AMR gene data
 ab_data[is.nan(ab_data)] <- 0
 ab_data<-as.data.frame(ab_data)
 #filter based on prevalence
@@ -70,7 +71,8 @@ sel_col=row.names(as.data.frame(z[z>=(0.01*(nrow(ab_data)))])) #In 1% patients p
 ab_data<-ab_data[sel_col]
 remove(sel_col,z)
 ab_data<-ab_data[rowSums(ab_data[, -1])>0, ] #drop no_res samples
-ab_data<-ab_data[row.names(ab_data) != "TBS672", , drop = FALSE] #detection of a single PatA gene in TBS672 creates a clustering artifact due to this 'outlier'
+ab_data<-ab_data[row.names(ab_data) != "TBS672", , drop = FALSE] #detection of a single PatA gene in TBS672 creates a clustering artifact due to this 'outlier', 
+ab_data<-ab_data[row.names(ab_data) != "14GREEK", , drop = FALSE] #likewise 14GREEK only contains smeD.
 
 #create vegdist similarity matrix
 ab_dsim=vegdist(ab_data,method='bray',diag=TRUE,upper=TRUE) 
@@ -84,9 +86,13 @@ for (i in 2:20){
   sil_values = c(sil_values, silhouette_score(AB, labels))
 }
 tuned_k<-which.max(sil_values)
+
 #assess clusters and grouping
 paste(tuned_k,sil_values[tuned_k],sep = " ")
 labels=spectralClustering(AB,tuned_k)
+
+#labels <- max(labels)+1 - labels #aesthetic change: most prevalent label now assigned value = 1. 
+
 lab=as.data.frame(labels,row.names = row.names(AB))
 
 #Calculate the robustness of clustering
@@ -118,12 +124,43 @@ print(1-mean(misclassification_ratio))
 
 
 labels <- max(labels)+1 - labels #aesthetic change: most prevalent label now assigned value = 1. 
+>>>>>>> 364c48ba0a4986c0285908fd2a5250e60bc243b8
 table(labels)
 #assigned labels
 lab=as.data.frame(labels,row.names = row.names(ab_data))
 
+#assess clusters robustness
+lab=as.data.frame(labels,row.names = row.names(AB))
 
-#Fig. E1####
+#Calculate the robustness of clustering
+#Bootstrap-robustness test
+cluster<-function(W,indices,z=tuned_k){
+  W<-W[indices,indices]
+  labels=spectralClustering(W,z)
+  lab=as.data.frame(labels,row.names = row.names(W))
+  return(lab)
+}
+is.even <- function(x) x %% 2 == 0
+is.odd <- function(x) x %% 2 != 0
+
+misclassification_ratio=c()
+for (i in 1:100){
+  ind<-sample(row.names(AB),round(0.7*(dim(AB)[1])))
+  l=cluster(AB,ind)
+  com=merge(lab,l,by="row.names",all.y = TRUE);row.names(com)<-com$Row.names;com$Row.names<-NULL
+  if ( sum(is.odd(rowSums(com)))>sum(is.even(rowSums(com))) ) {
+    mis<-sum(is.even(rowSums(com)))
+  }
+  else{
+    mis<-sum(is.odd(rowSums(com)))
+  }
+  misclassification_ratio=c(misclassification_ratio,mis/(dim(com)[1]))
+}
+print("Robustness")
+print(1-mean(misclassification_ratio))
+
+
+#Fig. E2####
 BlankData <-read.csv("../Data/R_input_files/blank_analysis.csv") %>%
   as_tibble() #%>%   
 
@@ -163,7 +200,7 @@ Blank_taxa<-ggplot(data=TaxaBlank,aes(x=Type, y=value, fill=variable))+
   )
 Blank_taxa
 
-#Fig. E2#####
+#Fig. E3#####
 ##ICS_stack####
 
 AMRcols = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73")
@@ -335,10 +372,10 @@ adonis2(AMR_diversity ~ ICS.use, data=AMRDiversityViz, method="bray", permutatio
 adonis2(AMR_diversity ~ Long.term.antibiotics, data=AMRDiversityViz, method="bray", permutations=9999)
 
 
-#Fig. E3####
+#Fig. E4####
 #LEFSE analysis
 
-#Fig. E4####
+#Fig. E5####
 ##wrangle Metagenomic Taxonomy data####
 MetaG<-read.csv("../Data/R_input_files/CAMEB2_bacteria_top50.csv") %>%
   as_tibble() #%>%   
@@ -505,14 +542,19 @@ PCA_Tx_Aet<-ggplot(gg) +
   xlab("PC1 21.4%")+
   ylab("PC2 17.1%")
 
+Taxa_Geo
+Taxa_Aet
 PCA_Tx_Aet
+PCA_Tx_Geo
 
 adonis2(AMR_diversity ~ Country, data=AMRDiversityViz_Geo, method="bray", permutations=999)
-
 adonis2(AMR_diversity ~ Aetiology_short, data=AMRDiversityViz_Geo, method="bray", permutations=999)
 
-#Fig. E5####
-#Fig. E6 - bacteriophages####
+
+
+#Fig. E6####
+#schematic overview of bacteriophage pipline
+#Fig. E7 - bacteriophage profiling####
 ##All####
 Bacteriophages<-ggplot(data=BphageFam[which(BphageFam$Matching == "Matched"),],aes(x=SampleID, y=RPKM, fill=Virome))+
   geom_bar(aes(), stat="identity", position = "fill") +
@@ -745,4 +787,142 @@ adonis2(AMR_diversity ~ Country, data=BPhDiversityViz_Geo, method="bray", permut
 
 adonis2(AMR_diversity ~ Aetiology_short, data=BPhDiversityViz_Geo, method="bray", permutations=999)
 
+#Fig. E8#####
+# Set parameters
+wkdir <- file.path("../Data/R_input_files/Ivan-Rebuttal/")
+
+ps_AMR <- readRDS(file.path(wkdir, "AMR", "ps_hits.RData"))
+ps_Species <- readRDS(file.path(wkdir, "KAIJU", "ps_Species.RData"))
+depths <- read.csv(file.path(wkdir, "DEPTHS", "DEPTH-summary2.csv"))
+colnames(depths)[1] <- "SampleID"
+Master <-read.csv("../Data/R_input_files//Clinical_AMR_Microbiome_R2.csv") %>%
+  as_tibble()
+MasterVIZ = Master
+MasterVIZ$select <- ifelse(MasterVIZ$SC_AMR_alt==0, "null", "Bronchiectasis")
+MasterVIZ$select <- ifelse(is.na(MasterVIZ$select), "Non-diseased", MasterVIZ$select)
+MasterVIZ$SC_AMR_alt <- ifelse(is.na(MasterVIZ$SC_AMR_alt), "Non-diseased", MasterVIZ$SC_AMR_alt)
+AMRDiversityViz<-subset(MasterVIZ, select != "null")
+
+N_Species <- apply(otu_table(ps_Species), 1, function(x) sum(x!=0))
+N_AMRgenes <- apply(otu_table(ps_AMR), 1, function(x) sum(x!=0))
+N_PAreads <- c(otu_table(ps_Species)[, "Pseudomonas aeruginosa"])
+SpeciesDiversity <- diversity(otu_table(ps_Species), index= "shannon")
+PA <- sapply(otu_table(ps_Species)[, "Pseudomonas aeruginosa"], function(x) if(x>50) "Pos" else "Neg")
+KP <- sapply(otu_table(ps_Species)[, "Klebsiella pneumoniae"], function(x) if(x>50) "Pos" else "Neg")
+PAKP <- paste0(PA, ".", KP)
+dfSpecies <- data.frame(SampleID= sample_names(ps_Species), N_Species= N_Species,
+                        PA= PA, KP= KP, PAKP= PAKP, N_PAreads= N_PAreads, SpeciesDiversity= SpeciesDiversity)
+dfSpecies$PAKP <- 
+  gsub("Neg.Neg", "PA-KP-", gsub("Neg.Pos", "PA-KP+", gsub("Pos.Neg", "PA+KP-", gsub("Pos.Pos", "PA+KP+", dfSpecies$PAKP))))
+AMRDiversity <- diversity(otu_table(ps_AMR), index= "shannon")
+dfAMR <- data.frame(SampleID= sample_names(ps_AMR), N_AMRgenes= N_AMRgenes, AMRDiversity= AMRDiversity)
+
+df <- depths
+df <- merge(x= df, y= dfSpecies, by= "SampleID", all.x= TRUE)
+df <- merge(x= df, y= dfAMR, by= "SampleID", all.x= TRUE)
+rownames(df) <- df$SampleID
+df$NonhostDepth <- sapply(df$N_nonhuman, function(x) if (x>100000) "Deep" else "Shallow")
+table(df$NonhostDepth)
+df$NonhostDepth <- factor(df$NonhostDepth, levels = c("Shallow", "Deep"))
+
+#CHECK
+sample_data(ps_AMR) <- df
+sample_data(ps_Species) <- df
+
+df <- merge(df, MasterVIZ[, c("SampleID", "SC_AMR_alt")], by = "SampleID", all.x = TRUE) 
+
+#Perform the correlation test and store results
+df0 <- df[df$AMRDiversity!=0, ]
+cor_test_result.a <- cor.test(log10(df0$N_nonhuman), df0$AMRDiversity)
+#Extract the correlation coefficient and p-value
+cor_coefficient.a <- cor_test_result.a$estimate
+p_value.a <- cor_test_result.a$p.value
+
+Pt2<-ggplot(df0, aes(x = N_nonhuman, y = AMRDiversity)) +
+  geom_point(aes(color = NonhostDepth), alpha = 0.6) +  # Color grouping only for points
+  geom_smooth(method = "loess", se = TRUE, color = "black") +  # Overall regression line
+  labs(title = "Non-Human reads vs ARG diversity",
+       x = "Non-Human reads",
+       y = "ARG diversity (SDI)",
+       color = "Sequencing depth") +  # Rename the color legend
+  scale_x_log10()+
+  theme_minimal(base_size = 14) +
+  annotate("text", x = quantile(df0$N_nonhuman, 0.85), 
+           y = quantile(df0$AMRDiversity, 0), 
+           label = sprintf("r = %.2f, p = %.3f", cor_coefficient.a, p_value.a), 
+           size = 5, hjust = 0)
+
+#Perform the correlation test and store results
+cor_test_result.s <- cor.test(df0$N_nonhuman, df0$SpeciesDiversity)
+#Extract the correlation coefficient and p-value
+cor_coefficient.s <- cor_test_result.s$estimate
+p_value.s <- cor_test_result.s$p.value
+
+Pt1<-ggplot(df0, aes(x = N_nonhuman, y = SpeciesDiversity)) +
+  geom_point(aes(color = NonhostDepth), alpha = 0.6) +  # Color grouping only for points
+  geom_smooth(method = "loess", se = TRUE, color = "black") +  # Overall regression line
+  labs(title = "Non-Human reads vs Species diversity",
+       x = "Non-Human reads",
+       y = "Species diversity (SDI)",
+       color = "Sequencing depth") +  # Rename the color legend
+  theme_minimal(base_size = 14) +
+  annotate("text", x = quantile(df0$N_nonhuman, 0.85), 
+           y = quantile(df0$SpeciesDiversity, 0), 
+           label = sprintf("r = %.2f, p = %.3f", cor_coefficient.s, p_value.s), 
+           size = 5, hjust = 0) +
+  scale_x_log10() +
+  guides(color = guide_legend(reverse = TRUE))
+
+df0 <- df[df$SC_AMR_alt!=0, ]
+# Perform Wilcoxon test
+wilcox_result <- wilcox.test(N_nonhuman ~ SC_AMR_alt, data = df0)
+
+# Create the plot
+Pt3 <- ggplot(data = df0, aes(x = SC_AMR_alt, y = N_nonhuman, group = SC_AMR_alt)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA, aes(fill = SC_AMR_alt)) +
+  geom_jitter(alpha = 0.6, width = 0.2, aes(color = SC_AMR_alt)) +
+  scale_fill_manual(values = c("#1800F5", "#932DE7")) +
+  scale_color_manual(values = c("#1800F5", "#932DE7")) +
+  scale_y_log10() +
+  scale_x_discrete(labels = c("RT1", "RT2")) +
+  labs(title = "Non-Human reads RT1 vs RT2",
+       x = "Resistotype",
+       y = "log10(non-human reads)") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none") +
+  annotate("text", x = 1.5, y = max(df0$N_nonhuman),  # Adjust x and y for positioning
+           label = sprintf("Wilcoxon p-value: %.3f", wilcox_result$p.value),
+           size = 4, vjust = 1)  # Adjust text size and vertical position
+
+wilcox_result.pc <- wilcox.test(Percent_nonhuman ~ SC_AMR_alt, data = df0)
+
+# Create the plot
+Pt4 <- ggplot(data = df0, aes(x = SC_AMR_alt, y = Percent_nonhuman, group = SC_AMR_alt)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA, aes(fill = SC_AMR_alt)) +
+  geom_jitter(alpha = 0.6, width = 0.2, aes(color = SC_AMR_alt)) +
+  scale_fill_manual(values = c("#1800F5", "#932DE7")) +
+  scale_color_manual(values = c("#1800F5", "#932DE7")) +
+  #scale_y_log10() +
+  scale_x_discrete(labels = c("RT1", "RT2")) +
+  labs(title = "Non-Human reads RT1 vs RT2",
+       x = "Resistotype",
+       y = "Non-human reads(%)") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none") +
+  annotate("text", x = 1.5, y = max(df0$Percent_nonhuman),  # Adjust x and y for positioning
+           label = sprintf("Wilcoxon p-value: %.3f", wilcox_result.pc$p.value),
+           size = 4, vjust = 1)  # Adjust text size and vertical position
+
+
+# Assuming Pt1, Pt2, and Pt3 are your ggplot objects
+Fig_E8<-ggarrange(Pt1, Pt2, Pt3, Pt4,
+                    ncol = 2,   # Arrange in 3 columns
+                    nrow = 2,   # Arrange in 1 row
+                    common.legend = TRUE, # Use a common legend
+                    legend = "bottom")    # Place the legend at the bottom
+
+#ggsave("C:/Users/mmaca/Code/git/BE-Resistome/Data/R_output_files/Pt3_plot.pdf", plot = FigureSX, width = 10, height = 8)
+Fig_E8
+
+#Fig. E9####
 
