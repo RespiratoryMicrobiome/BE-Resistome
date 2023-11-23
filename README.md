@@ -5,7 +5,7 @@ Accompanying code repository for the scientific manuscript "AIRWAY 'RESISTOTYPES
 
 All associated data can be found in the folder [Data](./Data/), while the [Analysis](./Analysis/) folder contains R code required to re-run analyses. Here, analysis supporting the results documented in the paper are presented as R-markdown files with accompanying rendered HTML files, are found [Here](./Data/R_output_files/knit_RMD_HTML) and can be downloaded and viewed for ease of review.
 
-Summary of key R packages / Pyton modules used in the analysis: 
+Summary of key R packages / Python modules used in the analysis: 
 | Method           | Packages/modules  | Version | Description                                                                 | Main Functions Used                                          |
 |------------------|-------------------|---------|-----------------------------------------------------------------------------|--------------------------------------------------------------|
 | Data Wrangling   | tidyverse         | 2.0.0   | An opinionated collection of R packages designed for data science.           | `read_csv`, `as_tibble`, `filter`, `select`, `mutate`, `arrange`, `gather`, `pivot_longer` |
