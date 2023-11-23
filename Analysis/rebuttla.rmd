@@ -1,0 +1,34 @@
+---
+title: "qPCR_plot"
+author: "Micheál Mac Aogáin"
+date: "2023-10-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load required R packages
+```{r, warning = FALSE, message = FALSE}
+#Load packages
+if(!require("pacman")) install.packages("pacman")
+pacman::p_load(pacman, ggplot2, tidyverse, tidyr, lubridate, data.table, tsibble, wesanderson, reticulate, SNFtool, funrar, vegan, dunn.test, ggpubr, Hmisc, RColorBrewer, phyloseq, dplyr, reshape2, forcats, colorspace, pheatmap)
+```
+
+#Load required R packages
+```{r, warning = FALSE, message = FALSE}
+#Load packages
+if(!require("pacman")) install.packages("pacman")
+pacman::p_load(pacman, ggplot2, tidyverse, tidyr, lubridate, data.table, tsibble, wesanderson, reticulate, SNFtool, funrar, vegan, dunn.test, ggpubr, Hmisc, RColorBrewer, phyloseq, dplyr, reshape2, forcats, colorspace, pheatmap)
+library(tidyr)
+#Load data
+qPCR <-read.csv("../Data/R_input_files/qPCR_data.csv") %>%
+  as_tibble()
+
+long_qPCR <- gather(df, key = "Copies", value = "Value", PA_qPCR, HI_qPCR, X16S_copies)
+
+  
+colnames(qPCR)
+
+```

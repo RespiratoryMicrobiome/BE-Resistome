@@ -315,4 +315,12 @@ p2 <- ggplot(data, aes(x=AMR, y=Count, fill=AMR)) +
   scale_fill_manual(name= "AMR", values=colAMR)
 
 p2
+
+Fig_5<-ggarrange(p, p2, nrow=1)
+pdf(file = "../Data/R_output_files/Fig_5DE.pdf",   # The directory you want to save the file in
+    width = 12, # The width of the plot in inches
+    height = 8)
+Fig_5
+dev.off()
+
 ```

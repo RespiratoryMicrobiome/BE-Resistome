@@ -1,7 +1,7 @@
 ---
 title: "Main_Figure_6"
 author: "Micheál Mac Aogáin"
-date: "2023-06-13"
+date: "2023-11-23"
 output: html_document
 ---
 #Knitr setup
@@ -17,14 +17,14 @@ pacman::p_load(ggplot2, tidyverse, vegan, vcd, knitr,funrar,pheatmap,colorspace,
 
 #Load and wrangle taxonomic data
 ```{r, warning = FALSE, message = FALSE}
-#Figure 6A####
-MasterANDGK <-read.csv("../Data/R_input_files/MetaDataWsnfResults_GK_final.csv") 
+
+MasterANDGK <-read.csv("../Data/R_input_files/MetaDataWsnfResults_GK_final_R2.csv") 
 
 cohort<-subset(MasterANDGK, is.na(SC_AMR_alt) == FALSE & SC_AMR_alt !=0)
-cohort<-tail(cohort, n =8)
+cohort<-tail(cohort, n =16)
 cohort <- cohort %>% #clinical variables + amr families
   as_tibble() %>%
-  select(-48:-373,-395:-686)
+  select(-48:-373,-395:-714)
 cohort$PseuDOM<-ifelse(cohort$DomBactOth_short == "Pseudomonas", "Pseudomonas", "other")
 cohort$HaemDOM<-ifelse(cohort$DomBactOth_short == "Haemophilus", "Haemophilus", "other")
 cohort$FEVfactor<-cut(cohort$FEV1,  breaks=c(0, 30, 50, 70, Inf))
@@ -47,8 +47,12 @@ cohort$AetiologyN3 <- factor(cohort$AetiologyN3, levels = c("idiopathic", "postI
 # cohortUM<-subset(cohort, Matching == "UnMatched")
 # cohort$CTRL<-ifelse(is.na(cohort$Age), "CTRL", "PATIENT")
 cohort$ReadsNonHuman <- factor(cohort$ReadsNonHuman, levels=c("Pre","Post"))
+cohort$ReadsTrimmed <- factor(cohort$ReadsTrimmed, levels = c("P1", "P2", "P3", "P4", "P5","P6", "P7", "P8"))
+```
 
-#Plotting
+#Figure 6A
+```{r, warning = FALSE, message = FALSE}
+
 AMR_GK<-ggplot(data=cohort,aes(x=ReadsTrimmed, y=RPKM, fill=Resistome))+
   geom_bar(aes(), stat="identity", position = "fill") +
   scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
@@ -76,9 +80,9 @@ AMR_GK<-ggplot(data=cohort,aes(x=ReadsTrimmed, y=RPKM, fill=Resistome))+
   )
 AMR_GK
 ```
-#Loading
+#Figure 6B
 ```{r, warning = FALSE, message = FALSE}
-MasterGK <-read.csv("../Data/R_input_files/GK_master_Taxa25.csv") # Top 25 taxa
+MasterGK <-read.csv("../Data/R_input_files/GK_master_Taxa25_R2.csv") # Top 25 taxa
 
 AMRGK <- MasterGK %>%
   as_tibble() %>%
@@ -95,6 +99,7 @@ n <- 56
 qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
 col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
 col_vector_spec<-replace(col_vector, 26, "grey") #
+
 
 TAXA_GK<-ggplot(data=AMRGK,aes(x=SputumSampleNo
 , y=RPKM, fill=AMR))+
@@ -117,25 +122,29 @@ TAXA_GK<-ggplot(data=AMRGK,aes(x=SputumSampleNo
   xlab("")+
   ylab("Relative abundance (%)")+
   facet_wrap(~AMRGK$TypeSamples, scales="free_x")+
+  scale_x_discrete(labels = c("P1","P2","P3","P4","P5","P6","P7","P8")) +
   theme(
     strip.background = element_rect(
       color="white", fill="white", size=1, linetype="solid"),
     #strip.text.x = element_blank()
   )
 TAXA_GK
+
+
+
 ```
 
 
-#Loading
+#Figure 6C
 ```{r, warning = FALSE, message = FALSE}
-Master <-read.csv("../Data/R_input_files/MetaDataWsnfResults_GK_final.csv") %>%
+Master <-read.csv("../Data/R_input_files/MetaDataWsnfResults_GK_final_R2.csv") %>%
   #Master <-read.csv("R_input_files/MetaDataWsnfResults_3.5temp_TJ.csv") %>% # v 3.3 includes raw read data, 3.4 includes info on paring and "trios"
   as_tibble()
 
 AMR_diversity <- Master %>%
   subset(is.na(SC_AMR_alt)==FALSE) %>%
   as_tibble() %>%
-  select(1:1,395:645) #for genes
+  select(1:1,395:673) #for genes
 #select(1:1,374:394) #for amr drug class
 NAMES_list <- AMR_diversity$SampleID
 main_data <- AMR_diversity[AMR_diversity$SampleID %in% NAMES_list, ]
@@ -150,6 +159,8 @@ AMR_diversity<-AMR_diversity[!isZero,]
 
 MasterVIZ = Master
 MasterVIZ <- MasterVIZ[ MasterVIZ$SampleID %in% row.names(AMR_diversity), ]
+
+diversiytty<-as.data.frame(diversity(AMR_diversity, index = "shannon"))
 
 vegdist(AMR_diversity, "bray")-> Mbiome_PCoA
 as.matrix(Mbiome_PCoA)->Mbiome_PCoA
@@ -185,7 +196,7 @@ PA_erd_PCA<-ggplot(gg) +
   geom_point(data=centroids, aes(x=x, y=y, color=cluster), size=5, shape = 13, colour = "black") +
   scale_colour_manual(values = c("#1800F5","#932DE7", "red", "green"), labels = c("RT1", "RT2", "Post-eradication", "Pre-eradication"))+
   labs(colour="",  
-       x = "PC 1 (23.8%)", y = "PC 2 (4.5%)")+
+       x = "PC 1 (37.1%)", y = "PC 2 (9.6%)")+
   theme(legend.position=c(0.3,0.3),
         legend.title = element_blank(),
         axis.line = element_line(size = 0.5, colour = "black"),
@@ -195,4 +206,100 @@ PA_erd_PCA<-ggplot(gg) +
   scale_x_reverse()+
   guides(colour = guide_legend(reverse = FALSE))
 PA_erd_PCA
+
+# checkEig<-capscale(AMR_diversity ~1)
+# Eig <-eigenvals(checkEig)
+# print(Eig[1:2] / sum(Eig))
+
+Adonis_ERD<-tail(AMR_diversity, 16)
+Adonis_ERD_meta<-tail(MasterVIZ, 16)
+
+adonis2(Adonis_ERD~ReadsNonHuman , data = Adonis_ERD_meta, method = "bray",permutations=9999, strata = Adonis_ERD_meta$ReadsTrimmed)
+
+```
+
+
+#Figure 6D
+```{r, warning = FALSE, message = FALSE}
+##Longitudinal AMR data Exacerbation cohort ####
+MasterLT <-read.csv("../Data/R_input_files//LT_master_combined_8.0.csv")
+AMRLT <- MasterLT %>%
+  as_tibble() %>%
+  select(-14:-230) 
+AMR_cols<-colnames(AMRLT[14:34])
+AMRLT <- AMRLT %>%
+  gather(AMR, RPKM, AMR_cols, -SampleSeqNo, -SputumSampleNo,  -TypeSamples, -TypeSamplesA,-TypeSamplesB,-Exacerbations,	-FEV1, -BSI,	-Severity, -WksToNxtEx,	-TmToNxtEx,	-Antibiotic,	-Antibiotic_class)
+AMRLT$TmToNxtEx <- factor(AMRLT$TmToNxtEx , levels = c("MoreThan12w","LessThan12w"))
+AMRLT$Exacerbations <- factor(AMRLT$Exacerbations , levels = c("NFE","FE"))
+relapse.labs <- c(
+  `LessThan12w` = "<12 w",
+  `MoreThan12w` = ">12 w")
+AMRLT$FEV170<-ifelse(AMRLT$FEV1 >70, ">70", "<70")
+AMRLTctrols<-subset(AMRLT, is.na(TypeSamplesB))
+
+#drop the controls stable
+AMRLT<-subset(AMRLT, is.na(Severity) != TRUE)
+
+Fig6D_L<-ggplot(data=AMRLT[which(AMRLT$TypeSamplesB == "BSL" | AMRLT$TypeSamplesB == "P")
+,],aes(x=TypeSamplesB, y=RPKM, fill=AMR))+
+  geom_bar(aes(), stat="identity", position="fill") +
+  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
+  scale_y_continuous(labels = scales::percent)+
+  scale_x_discrete(labels = c('Pre', 'Post'))+
+    theme(legend.position="right",
+        #axis.text=element_blank(),
+        #axis.title=element_blank(),
+        axis.title=element_text(size=14),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 90),
+        panel.background = element_rect(fill = NA),
+        axis.line = element_line(size = 0.5, colour = "black"),
+        legend.title = element_blank(),
+        legend.text = element_text(face = "italic", size = 9),
+        legend.key.height = unit(1.5, "mm"))+
+  guides(fill=guide_legend(ncol=1), size = .1)+
+  xlab("")+
+  ylab("Relative abundance (%)")+
+  #facet_grid(~AMRLT$TmToNxtEx, scales="free_x", labeller = as_labeller(relapse.labs))+
+  theme(
+    strip.background = element_rect(
+      color="white", fill="white", size=1, linetype="solid"),
+    strip.text.x = element_blank(),
+    #legend.text=element_text(size=8)
+    legend.position="none"
+  )
+
+#Plotting
+Fig6D_R<-ggplot(data=cohort,aes(x=ReadsNonHuman, y=RPKM, fill=Resistome))+
+  geom_bar(aes(), stat="identity", position = "fill") +
+  scale_fill_manual(values = c("#026EB8","#06A955","#5D2E83","#2A2A73","#fc8403","#EBA5F3","#fc5017","#5CA5DB","#db6960","#a3d9d2","#B60004","#91CE59","#97809e","#C6DFA6","#FF9300","#FFBC06","#3B3B3B", "#026EB8","#06A955","#ffcccc","#2A2A73"))+
+  scale_y_continuous(labels = scales::percent)+
+  #scale_x_discrete(labels = c('Non-diseased','Bronchiectasis'))+
+  theme(legend.position="right",
+        #axis.text=element_blank(),
+        #axis.title=element_blank(),
+        axis.title=element_text(size=14),
+        #axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 90),
+        panel.background = element_rect(fill = NA),
+        axis.line = element_line(size = 0.5, colour = "black"),
+        legend.title = element_blank(),
+        legend.text = element_text(face = "italic", size = 9),
+        legend.key.height = unit(1.5, "mm"))+
+  guides(fill=guide_legend(ncol=1), size = .1)+
+  xlab("")+
+  ylab("")+
+  #facet_wrap(~cohort$ReadsNonHuman, scales="free_x")+
+  theme(
+    strip.background = element_rect(
+      color="white", fill="white", size=1, linetype="solid"),
+    #strip.text.x = element_blank()
+  )
+
+Fig6D<-ggarrange(Fig6D_L,Fig6D_R,
+                   font.label = list(size = 5),
+                   common.legend = TRUE, nrow = 1, legend = "none") #this one
+Fig6D
+adonis2(Adonis_ERD~ReadsNonHuman , data = Adonis_ERD_meta, method = "bray",permutations=9999, strata = Adonis_ERD_meta$ReadsTrimmed)
+
 ```

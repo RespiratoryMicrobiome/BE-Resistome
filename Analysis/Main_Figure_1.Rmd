@@ -1,7 +1,7 @@
 ---
 title: "Main_Figure_1"
 author: "Micheál Mac Aogáin"
-date: "2023-06-13"
+date: "2023-11-23"
 output: html_document
 ---
 
@@ -13,13 +13,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, warning = FALSE, message = FALSE}
 #Load packages
 if(!require("pacman")) install.packages("pacman")
-pacman::p_load(pacman, ggplot2, tidyverse, tidyr, lubridate, data.table, tsibble, wesanderson, reticulate, SNFtool, funrar, vegan, dunn.test, ggpubr, Hmisc, RColorBrewer, phyloseq, dplyr, reshape2, forcats, colorspace, pheatmap)
+pacman::p_load(pacman, ggplot2, tidyverse, tidyr, vegan, RColorBrewer, ggpubr)
 ```
 
 #Load data
 ```{r, warning = FALSE}
 ##Master data cross-sectional####
-Master <-read.csv("../Data/R_input_files//Clinical_AMR_Microbiome.csv") %>%
+Master <-read.csv("../Data/R_input_files//Clinical_AMR_Microbiome_R2.csv") %>%
   as_tibble()
 Master$FEVfactor<-cut(Master$FEV1, breaks=c(0, 30, 50, 70, Inf))
 
@@ -38,7 +38,7 @@ AMRFam$Aetiology_short <- factor(AMRFam$Aetiology_short, levels=c("idiopathic", 
 AMRFam$SampleID <- factor(AMRFam$SampleID, levels = AMRFam$SampleID[order(AMRFam$SC_AMR_alt)])
 AMRFam$FEVfactor<-fct_rev(AMRFam$FEVfactor)
 AMRFam <- AMRFam %>%
-  gather(Resistome, RPKM, starts_with(c("Acridine.dye", "Aminocoumarin.antibiotic", "Aminoglycoside", "Antibacterial.free.fatty.acids", "Beta.lactam", "Bicyclomycin", "Diaminopyrimidine", "Fluoroquinolone", "Fosfomycin", "Fusidic.acid", "MLS", "Multidrug", "Mupirocin", "Nitroimidazole.antibiotic", "Nucleoside.antibiotic", "Peptide.antibiotic", "Phenicol", "Rifampicin", "Sulfonamide.antibiotic", "Tetracycline", "Triclosan")), -SampleID, -Country, -Continent, -Matching, -Paired, -Trio, -Age, -Sex..Male.0..Female.1., -Exacerbations, -ExacerbatorState, -FEV1, -BSI, -ICS.use, -BMI, -Aetiology, -Aetiology_short, -MMRC.score, -SC_AMR_alt, -FEVfactor)
+  gather(Resistome, RPKM, starts_with(c("Acridine.dye", "Aminocoumarin.antibiotic", "Aminoglycoside", "Antibacterial.free.fatty.acids", "Beta.lactam", "Bicyclomycin", "Diaminopyrimidine", "Fluoroquinolone", "Fosfomycin", "Fusidic.acid", "MLS", "Multidrug", "Mupirocin", "Nitroimidazole.antibiotic", "Nucleoside.antibiotic", "Peptide.antibiotic", "Phenicol", "Rifampicin", "Sulfonamide.antibiotic", "Tetracycline", "Triclosan")), -SampleID, -Country, -Continent, -Matching, -Paired, -Trio, -Age, -Sex..Male.0..Female.1., -Exacerbations, -ExacerbatorState, -FEV1, -BSI, -ICS.use, -BMI, -Ethnicity, -Aetiology_short, -MMRC.score, -SC_AMR_alt, -FEVfactor)
 
 AMRFam$CTRL<-ifelse(is.na(AMRFam$BSI), "CTRL", "PATIENT")
 
@@ -48,7 +48,7 @@ AMRLT <- MasterLT %>%
   as_tibble() %>%
   select(-14:-230) 
 AMR_cols<-colnames(AMRLT[14:34])
-AMRLT <- AMRLT %>% 
+AMRLT <- AMRLT %>%
   gather(AMR, RPKM, AMR_cols, -SampleSeqNo, -SputumSampleNo,  -TypeSamples, -TypeSamplesA,-TypeSamplesB,-Exacerbations,	-FEV1, -BSI,	-Severity, -WksToNxtEx,	-TmToNxtEx,	-Antibiotic,	-Antibiotic_class)
 AMRLT$TmToNxtEx <- factor(AMRLT$TmToNxtEx , levels = c("MoreThan12w","LessThan12w"))
 AMRLT$Exacerbations <- factor(AMRLT$Exacerbations , levels = c("NFE","FE"))
@@ -222,6 +222,7 @@ D<-ggplot(data=AMRLT[which(AMRLT$TypeSamplesA !="NA"),],aes(x=TypeSamplesB, y=RP
   )
 D
 ```
+
 ##Figure 1E
 ```{r, warning = FALSE, message = FALSE}
 ### PCA ####
@@ -283,13 +284,14 @@ E<-ggplot(gg) +
   )+  scale_x_reverse()
 #+ggtitle("Timepoint")
 #PERMANOVA - timepoint
-adonis2(AMRLT_diversity~TypeSamplesB , data = LTDiversityViz, method = "bray",permutations=999)
+adonis2(AMRLT_diversity~TypeSamplesB , data = LTDiversityViz, method = "bray",permutations=999, strata = LTDiversityViz$SputumSampleNo)
 #checking PC %s
 #rda(X = AMRLT_diversity, scale = TRUE)
 checkEig<-capscale(AMRLT_diversity ~1)
 Eig <-eigenvals(checkEig)
 print(Eig[1:2] / sum(Eig))
 E
+
 ```
 
 ##Figure 1F
@@ -320,6 +322,10 @@ F<-ggplot(data=AMRLT[which(AMRLT$TypeSamplesA !="NA"),],aes(x=TypeSamplesB, y=RP
     legend.position="none"
   )
 F
+
+
+
+
 ```
 ##Figure 1G
 ```{r, warning = FALSE, message = FALSE}
@@ -347,10 +353,9 @@ G<-ggplot(gg) +
         panel.background = element_rect(fill = NA),
   )+
   scale_x_reverse()
-#PERMANOVA - timepoint
-adonis2(AMRLT_diversity~TmToNxtEx , data = LTDiversityViz, method = "bray",permutations=9999)
-G
-#+ggtitle("Time to next exacerbation")
+#PERMANOVA - timeToexacerbation
+adonis2(AMRLT_diversity~TmToNxtEx , data = LTDiversityViz, method = "bray",  permutations=9999, strata = LTDiversityViz$TypeSamplesB)
+
 ```
 
 #Combine and print panels for Figure 1####
@@ -370,4 +375,5 @@ pdf(file = "../Data/R_output_files/Figure_1.pdf",   # The directory you want to 
   height = 12)
 Figure_1
 dev.off()
+Figure_1
 ```

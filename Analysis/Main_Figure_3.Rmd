@@ -1,7 +1,7 @@
 ---
 title: "Main_Figure_3"
 author: "Micheál Mac Aogáin"
-date: "2023-06-13"
+date: "2023-11-23"
 output: html_document
 ---
 #Load required R packages
@@ -22,7 +22,7 @@ knitr::include_graphics("../Data/R_input_files/Figure3A_TJ_schematic.pdf")
 #Load data
 ```{r, warning = FALSE}
 ##Master data cross-sectional####
-Master <-read.csv("../Data/R_input_files//Clinical_AMR_Microbiome.csv") %>%
+Master <-read.csv("../Data/R_input_files//Clinical_AMR_Microbiome_R2.csv") %>%
   as_tibble()
 Master$FEVfactor<-cut(Master$FEV1, breaks=c(0, 30, 50, 70, Inf))
 
@@ -38,7 +38,7 @@ AMRFam$Aetiology_short <- factor(AMRFam$Aetiology_short, levels=c("idiopathic", 
 AMRFam$SampleID <- factor(AMRFam$SampleID, levels = AMRFam$SampleID[order(AMRFam$SC_AMR_alt)])
 AMRFam$FEVfactor<-fct_rev(AMRFam$FEVfactor)
 AMRFam <- AMRFam %>%
-  gather(Resistome, RPKM, starts_with(c("Acridine.dye", "Aminocoumarin.antibiotic", "Aminoglycoside", "Antibacterial.free.fatty.acids", "Beta.lactam", "Bicyclomycin", "Diaminopyrimidine", "Fluoroquinolone", "Fosfomycin", "Fusidic.acid", "MLS", "Multidrug", "Mupirocin", "Nitroimidazole.antibiotic", "Nucleoside.antibiotic", "Peptide.antibiotic", "Phenicol", "Rifampicin", "Sulfonamide.antibiotic", "Tetracycline", "Triclosan")), -SampleID, -Country, -Continent, -Matching, -Paired, -Trio, -Age, -Sex..Male.0..Female.1., -Exacerbations, -ExacerbatorState, -FEV1, -BSI, -ICS.use, -BMI, -Aetiology, -Aetiology_short, -MMRC.score, -SC_AMR_alt, -FEVfactor)
+  gather(Resistome, RPKM, starts_with(c("Acridine.dye", "Aminocoumarin.antibiotic", "Aminoglycoside", "Antibacterial.free.fatty.acids", "Beta.lactam", "Bicyclomycin", "Diaminopyrimidine", "Fluoroquinolone", "Fosfomycin", "Fusidic.acid", "MLS", "Multidrug", "Mupirocin", "Nitroimidazole.antibiotic", "Nucleoside.antibiotic", "Peptide.antibiotic", "Phenicol", "Rifampicin", "Sulfonamide.antibiotic", "Tetracycline", "Triclosan")), -SampleID, -Country, -Continent, -Matching, -Paired, -Trio, -Age, -Sex..Male.0..Female.1., -Exacerbations, -ExacerbatorState, -FEV1, -BSI, -ICS.use, -BMI, -Ethnicity, -Aetiology_short, -MMRC.score, -SC_AMR_alt, -FEVfactor)
 
 AMRFam$CTRL<-ifelse(is.na(AMRFam$BSI), "CTRL", "PATIENT")
 ```
@@ -113,8 +113,28 @@ PCA_Geo<-ggplot(gg) +
   ylab("")
 PCA_Geo
 
-#PERMANOVA Aetiology
-adonis2(AMR_diversity ~ Country, data=AMRDiversityViz_Geo, method="bray", permutations=999)
+#PERMANOVA ethnicity
+adonis2(AMR_diversity ~ Ethnicity, data=AMRDiversityViz_Geo, method="bray", permutations=999)
+
+#PERMANOVA geography + ethnicity
+adonis2(AMR_diversity ~ Country+Ethnicity, data=AMRDiversityViz_Geo, method="bray", permutations=999)
+
+#PERMANOVA geography + ethnicity in Asian only
+#Subset AMRDiversityViz_Geo based on 'Country'
+AMRDiversityViz_Geo_subset <- subset(AMRDiversityViz_Geo, Country == "SG" | Country == "KL")
+
+#Match SampleIDs between AMR_diversity and AMRDiversityViz_Geo_subset
+matched_samples <- rownames(AMR_diversity) %in% AMRDiversityViz_Geo_subset$SampleID
+
+#Use which() to get the indices of matched samples
+matched_indices <- which(matched_samples)
+
+#Subset AMR_diversity based on the matched_indices
+AMR_diversity_subset <- AMR_diversity[matched_indices, ]
+
+#run PERMANOVA geography + ethnicity
+adonis2(AMR_diversity_subset ~ Ethnicity, data = AMRDiversityViz_Geo_subset, method = "bray", permutations = 999)
+
 
 ```
 #Figure 3C
@@ -150,12 +170,30 @@ PCA_Aet
 #PERMANOVA Aetiology
 adonis2(AMR_diversity ~ Aetiology_short, data=AMRDiversityViz_Geo, method="bray", permutations=999)
 
+#PERMANOVA covariate analysis
+AMRDiversityViz_Geo <- AMRDiversityViz_Geo %>% filter(!is.na(BMI))
+AMRDiversityViz_Geo <- AMRDiversityViz_Geo %>% filter(!is.na(Number.of.lobes.affected))
+AMRDiversityViz_Geo <- AMRDiversityViz_Geo %>% filter(!is.na(PriorHospitalisations))
+AMRDiversityViz_Geo <- AMRDiversityViz_Geo %>% filter(!is.na(MMRC.score))
+
+filtered_samples <- AMRDiversityViz_Geo[, 1]  # Assuming first column is SampleID
+sample_ids_filtered <- as.character(filtered_samples[[1]]) #Extract Sample IDs as a vector
+common_samples <- intersect(sample_ids_filtered, rownames(AMR_diversity))#If row names of AMR_diversity are Sample IDs, then proceed with intersection
+
+AMR_diversity_filtered <- AMR_diversity[rownames(AMR_diversity) %in% common_samples, ] #Filter AMR_diversity to keep only rows with common Sample IDs
+
+AMRDiversityViz_Geo$other.org<-ifelse(AMRDiversityViz_Geo$Other.organisms.isolated.in.sputum != "1" & AMRDiversityViz_Geo$Other.organisms.isolated.in.sputum != "0", "1", AMRDiversityViz_Geo$Other.organisms.isolated.in.sputum)
+
+adonis2(AMR_diversity_filtered ~ Country + BMI + Aetiology_short+MMRC.score+Number.of.lobes.affected+PriorHospitalisations+other.org+ICS.use+Long.term.antibiotics, data=AMRDiversityViz_Geo, method="bray", permutations=999)
+
+
 #INVESTIGATE COLINEARITY
 #Create a contingency table for 
 mytable <- table(AMRDiversityViz_Geo$Aetiology_short, AMRDiversityViz_Geo$Country)
 mytable
-
-# Compute the Cramer's V statistic
+#Compute  Cramer's V statistic
 assocstats(mytable)
+
+
 
 ```
