@@ -3,128 +3,99 @@ library(ggplot2)
 library(dplyr)
 library(ggpubr)
 library(ggrepel)
+library(vegan)
 
-setwd("c:/Users/mmaca/Code/git/BE-Resistome/Analysis/")
-#Load data
-qPCR <-read.csv("../Data/R_input_files/qPCR_data.csv") %>%
-  as_tibble()
-
-long_qPCR <- gather(qPCR, key = "Copies", value = "Value", PA_qPCR, HI_qPCR, X16S_copies)
-
-long_qPCR$Value_log <- log10(long_qPCR$Value + 0.1)
-
-long_qPCR$Copies<- factor(long_qPCR$Copies, levels = c("X16S_copies", "HI_qPCR", "PA_qPCR"))
-
-qPCR_plot <-ggplot(long_qPCR, aes(x = Copies, y = Value_log, color = Copies)) +
-  geom_boxplot() + 
-  scale_color_manual(values = c("HI_qPCR" = "#BEAED4", "PA_qPCR" = "#7FC97F","X16S_copies" = "#555555" ), labels = c("HI_qPCR" = "HI", "PA_qPCR" = "PA", "X16S_copies" = "16S (total)"))+
-  geom_jitter(width = 0.1) + # You can change the type of plot based on your preference
-  scale_y_continuous(breaks = c(0, 2, 4, 6, 8,10))+
-  facet_wrap(~ RT_group, scales = "free_y", labeller = labeller(RT_group = c("1" = "RT1", "2" = "RT2")))+
-  labs(x = "", y = expression(paste("log10 (16S rRNA gene copies /", mu, "l)"))) +
-  #scale_y_log10() +  # Add this line to set the y-axis to log scale
-  theme_minimal()+
-  theme(axis.line = element_line(size = 0.5, colour = "black"))+
-  scale_x_discrete(labels = c("16S (total)", "HI", "PA"))+
-  guides(
-    color = guide_legend(
-      title = NULL)) 
-
-# qPCR_plot + stat_compare_means(
-#   aes(group = RT_group),
-#   comparisons = list(c("HI_qPCR", "PA_qPCR")),
-#   method = "wilcox.test",
-#   label = "p.signif",  # Use "p.signif" to display significance stars
-#   test.adj = "bonferroni",
-#   position = "identity",
-#   vjust = -0.5
-# )
+###PERMANOVA CHECKS
+AMRLT_gene <- MasterLT %>%
+  as_tibble() %>%
+  select(1:13,80:230) 
+AMR_cols<-colnames(AMRLT_gene[14:164])
+AMRLT_gene <- AMRLT_gene %>%
+  gather(AMR, RPKM, AMR_cols, -SampleSeqNo, -SputumSampleNo,  -TypeSamples, -TypeSamplesA,-TypeSamplesB,-Exacerbations,	-FEV1, -BSI,	-Severity, -WksToNxtEx,	-TmToNxtEx,	-Antibiotic,	-Antibiotic_class)
+AMRLT_gene$TmToNxtEx <- factor(AMRLT_gene$TmToNxtEx , levels = c("MoreThan12w","LessThan12w"))
+AMRLT_gene$Exacerbations <- factor(AMRLT_gene$Exacerbations , levels = c("NFE","FE"))
+relapse.labs <- c(
+  `LessThan12w` = "<12 w",
+  `MoreThan12w` = ">12 w")
+AMRLT_gene$FEV170<-ifelse(AMRLT_gene$FEV1 >70, ">70", "<70")
+AMRLTctrols<-subset(AMRLT_gene, is.na(TypeSamplesB))
 
 
-# Calculate predominance based on which value is higher
-df <- qPCR[!grepl("GREEK", qPCR$Sample.Name, ignore.case = TRUE), ] %>%
-  mutate(Predominance = ifelse(PA_qPCR > HI_qPCR, "PA_qPCR", "HI_qPCR"))
+AMRLT_diversity <- MasterLT[which(MasterLT$TypeSamplesA !="NA"),] %>%
+  as_tibble() %>%
+  select(1,80:230) 
 
-table(df$RT_group, df$Predominance)
+main_dataLT <- AMRLT_diversity
+AMRLT_diversity<-as.matrix(AMRLT_diversity)
+rownames(AMRLT_diversity) <- AMRLT_diversity[,1]
+AMRLT_diversity = as.data.frame(subset(AMRLT_diversity, select = -c(SampleSeqNo) ))
+AMRLT_diversity[] <- lapply(AMRLT_diversity, as.numeric)
+isZero <- base::rowSums(AMRLT_diversity) == 0
+AMRLT_diversity<-AMRLT_diversity[!isZero,]
+vegdist(AMRLT_diversity, "bray")-> Mbiome_PCoA
+as.matrix(Mbiome_PCoA)->Mbiome_PCoA
+BrayCurtMbiome=cmdscale(Mbiome_PCoA)
+#ordiplot (BrayCurtMbiome, display = 'species', type = 'text')
+BCords<-scores(BrayCurtMbiome)
+BCords<-(as.data.frame(t(BCords)))
+BCords<-as.data.frame(t(BCords))
 
-# Calculate predominance based on which value is higher
-df <- df %>%
-  mutate(Predominance = ifelse(PA_qPCR > HI_qPCR, "PsA-dom", "Hi-dom"))
+LTDiversityViz<-MasterLT[which(MasterLT$TypeSamplesA !="NA"),] #drop controls -which subsetting
+#LTDiversityViz$SampleSeqNo %in% row.names(BCords) 
+LTDiversityViz<-LTDiversityViz[ LTDiversityViz$SampleSeqNo %in% row.names(BCords) , ]
 
-filtered_df <- df %>%
-  filter(RT_group %in% c("1", "2"))
+LTDiversityViz$Dim1<-BCords$Dim1
+LTDiversityViz$Dim2<-BCords$Dim2
 
-# Calculate proportions within each group
-proportions_df <- filtered_df %>%
-  group_by(RT_group, Predominance) %>%
-  summarise(Count = n()) %>%
-  ungroup() %>%
-  group_by(RT_group) %>%
-  mutate(Proportion = Count / sum(Count))
+LTDiversityViz$FEV170<-ifelse(LTDiversityViz$FEV1 >70, ">70", "<70")
+LTDiversityViz$FEV170<- factor(LTDiversityViz$FEV170 , levels = c(">70","<70"))
 
-qPCR_prop<- ggplot(proportions_df, aes(x = as.factor(RT_group), y = Proportion, fill = Predominance)) +
-  geom_bar(stat = "identity") +
-  labs(x = "", y = "Proportion", fill = "Predominance") +
-  scale_fill_manual(values = c("PsA-dom" = "#7FC97F", "Hi-dom" = "#BEAED4")) +
-  scale_x_discrete(position = "top") +
-  theme_minimal()
-
-
-combined_plot <- ggarrange(qPCR_plot, qPCR_prop, ncol = 2, #labels = "AUTO",
-                           common.legend = FALSE,
-                           legend = "bottom", widths = c(1.5, 1))
-
-pdf(file = "../Data/R_output_files/Fig_E9.pdf",   # The directory you want to save the file in
-    width = 10, # The width of the plot in inches
-    height = 6)
-combined_plot
-dev.off()
-
-
-#Load data
-qPCR <-read.csv("../Data/R_input_files/qPCR_data_R.csv") %>%
-  as_tibble()
-
-qPCR_2 <- qPCR[grepl("GREEK", qPCR$Sample.Name, ignore.case = TRUE), ]
-
-long_qPCR_2 <- gather(qPCR_2, key = "Copies", value = "Value", PA_qPCR, HI_qPCR, X16S_copies)
-
-long_qPCR_2$Value_log <- log10(long_qPCR_2$Value + 1)
-
-long_qPCR_2$Copies<- factor(long_qPCR_2$Copies, levels = c("X16S_copies", "HI_qPCR", "PA_qPCR"))
-long_qPCR_2$Time.point<- factor(long_qPCR_2$Time.point, levels = c("Pre", "Post"))
-
-qPCR_plot_PA_erd <-ggplot(long_qPCR_2[which(long_qPCR_2$Copies == "PA_qPCR"),], aes(x = Time.point, y = Value_log)) +
-  geom_boxplot(outlier.shape = NA, fill = "#7FC97F")+ 
-  geom_line(aes(group = Patient))+ 
-  geom_point() + # You can change the type of plot based on your preference
-  #facet_wrap(~ Copies, scales = "free_y", labeller = labeller(RT_group = c("1" = "RT1", "2" = "RT2")))+
-  labs(x = "", y = expression(paste("log10 (16S P.aeruginosa rRNA gene copies /", mu, "l)"))) +  scale_x_discrete(labels = c("Pre", "Post"))+
-  scale_y_continuous(breaks = c(0, 1, 2, 3, 4,5,6))+
-  #scale_y_log10() +  # Add this line to set the y-axis to log scale
-  theme(
-    strip.background = element_rect(
-      color="white", fill="white", size=1, linetype="solid"),
-    strip.text.x = element_blank(),
-    panel.background = element_rect(fill = NA),
-    axis.line = element_line(size = 0.5, colour = "black"))
-
-wilcox_result<-
-wilcox.test(long_qPCR_2[which(long_qPCR_2$Copies== "PA_qPCR"),]$Value~long_qPCR_2[which(long_qPCR_2$Copies== "PA_qPCR"),]$Time.point, paired = TRUE, alternative = "two.sided")
-
-pdf(file = "../Data/R_output_files/Fig_E7.pdf",   # The directory you want to save the file in
-    width = 10, # The width of the plot in inches
-    height = 6)
-combined_plot
-dev.off()
-
-pdf(file = "../Data/R_output_files/Figure_E11.pdf",   # The directory you want to save the file in
-    width = 4, # The width of the plot in inches
-    height = 4)
-qPCR_plot_PA_erd
-dev.off()
+#AMR PCOA of Resistotypes BY sample type   
+gg <- data.frame(cluster=factor(LTDiversityViz$TypeSamplesB), x=LTDiversityViz$Dim1, y=LTDiversityViz$Dim2, grp=LTDiversityViz$TypeSamplesB, shape=LTDiversityViz$TypeSamplesB)
+# calculate group centroid locations
+centroids <- aggregate(cbind(x,y)~cluster,data=gg,mean)
+# merge centroid locations into ggplot dataframe
+gg <- merge(gg,centroids,by="cluster",suffixes=c("",".centroid"))
+# generate star plot...
+E<-ggplot(gg) +
+  #scale_col_manual(values=c(16, 16, 16,16))+
+  scale_linetype_identity() +
+  geom_segment(aes(x=x.centroid, y=y.centroid, xend=x, yend=y, colour = cluster),alpha = 0.3)+
+  geom_point(aes(x=x,y=y, colour = cluster), size = 2) + #can add ",shape = shape" in aes to introduce shape to points.
+  #geom_point(aes(x=x,y=y, colour = cluster, shape = shape), size = 2) +
+  geom_point(data=centroids, aes(x=x, y=y, color=cluster), size=5) +
+  geom_point(data=centroids, aes(x=x, y=y, color=cluster), size=5, shape = 13, colour = "black") +
+  scale_shape_discrete(labels = c("B", "E", "P"))+
+  scale_colour_manual(values = c("#619CFF", "#F8766D", "#00BA38"), labels = c("B", "E", "P"))+
+  labs(colour="",  
+       x = "PC 1 (83.3%)", y = "PC 2 (12.1%)")+
+  theme(legend.position="bottom",
+        legend.title = element_blank(),
+        axis.line = element_line(size = 0.5, colour = "black"),
+        panel.background = element_rect(fill = NA),
+  )+  scale_x_reverse()
+#+ggtitle("Timepoint")
 
 
+#PERMANOVA - timepoint
+adonis2(AMRLT_diversity~TypeSamplesB , data = LTDiversityViz, method = "bray",permutations=999, strata = LTDiversityViz$SputumSampleNo)
+
+#Exclude samples with 'EX' in TypeSamplesB so as to compare pre post ACUTE therapy
+filtered_data <- LTDiversityViz[LTDiversityViz$TypeSamplesB != 'EX', ]
+
+filtered_data <- LTDiversityViz[LTDiversityViz$TypeSamplesA == "P1" | LTDiversityViz$TypeSamplesA == "BSL",]
+
+# Assuming AMRLT_diversity is your dataset with values
+# Match the rows based on SampleSeqNo
+amr_diversity <- AMRLT_diversity[rownames(AMRLT_diversity) %in% filtered_data$SampleSeqNo, ]
+
+# Run PERMANOVA with strata information
+result <- adonis2(amr_diversity ~ TypeSamplesB, data = filtered_data, method = "bray", 
+                  permutations = 999, strata = filtered_data$SputumSampleNo)
+
+
+# Print the result
+print(result)
 
 
 
