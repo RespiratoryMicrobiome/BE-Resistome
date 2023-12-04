@@ -2,7 +2,9 @@
 title: "Main_Figure_5"
 author: "Micheál Mac Aogáin"
 date: "2023-06-13"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 #Knitr setup
 ```{r setup, include=TRUE}
@@ -26,7 +28,7 @@ MetaG<-read.csv("../Data/R_input_files/CAMEB2_bacteria_top50.csv") %>%
 #filter(Matching == "Matched" )
 
 #Load Master datafile####
-Master <-read.csv("../Data/R_input_files/Clinical_AMR_Microbiome.csv") %>%
+Master <-read.csv("../Data/R_input_files/Clinical_AMR_Microbiome_R2.csv") %>%
   as_tibble()
 MetaG$SC_AMR_alt<-Master[which(Master$Matching != "NA"),]$SC_AMR_alt
 MetaG$Reads<-Master[which(Master$Matching != "NA"),]$ReadsNonHuman
@@ -316,11 +318,11 @@ p2 <- ggplot(data, aes(x=AMR, y=Count, fill=AMR)) +
 
 p2
 
-Fig_5<-ggarrange(p, p2, nrow=1)
-pdf(file = "../Data/R_output_files/Fig_5DE.pdf",   # The directory you want to save the file in
-    width = 12, # The width of the plot in inches
-    height = 8)
-Fig_5
-dev.off()
+# Fig_5<-ggarrange(p, p2, nrow=1)
+# pdf(file = "../Data/R_output_files/Fig_5DE.pdf",   # The directory you want to save the file in
+#     width = 12, # The width of the plot in inches
+#     height = 8)
+# Fig_5
+# dev.off()
 
 ```

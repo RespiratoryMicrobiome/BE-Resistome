@@ -2,7 +2,9 @@
 title: "Online_supplement"
 author: "Micheál Mac Aogáin"
 date: "2023-11-30"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -179,7 +181,6 @@ AMR_diversity = as.data.frame(subset(AMR_diversity, select = -c(SampleID) ))
 AMR_diversity[] <- lapply(AMR_diversity, as.numeric)
 AMR_diversity<-AMR_diversity[row.names(AMR_diversity) != "TBS672", , drop = FALSE]
 isZero <- base::rowSums(AMR_diversity) == 0
-sum(isZero)
 AMR_diversity<-AMR_diversity[!isZero,]
 
 vegdist(AMR_diversity, "bray")-> Mbiome_PCoA
@@ -280,7 +281,7 @@ adonis2(AMR_diversity ~ Long.term.antibiotics, data=AMRDiversityViz, method="bra
 #LEFSE analysis
 knitr::include_graphics("../Data/R_input_files/Figure_E4.png")
 ```
-#Fig. E5 Geographic origin and Aetiology
+#Fig. E5 - Geographic origin and Aetiology
 ```{r, warning = FALSE, message = FALSE}
 ##wrangle Metagenomic Taxonomy data####
 MetaG<-read.csv("../Data/R_input_files/CAMEB2_bacteria_top50.csv") %>%
@@ -446,12 +447,12 @@ adonis2(AMR_diversity ~ Aetiology_short, data=AMRDiversityViz_Geo, method="bray"
 
 ```
 
-#Fig. E6 Schematic illustration - bacteriophage pipline
+#Fig. E6 - Schematic illustration - bacteriophage pipline
 ```{r label, out.width = "85%", fig.cap = ""}
 #LEFSE analysis
 knitr::include_graphics("../Data/R_input_files/Figure_E6.png")
 ```
-#Fig. E7 Bacteriophage analysis
+#Fig. E7 - Bacteriophage analysis
 ```{r, warning = FALSE, message = FALSE}
 ##All####
 Bacteriophages<-ggplot(data=BphageFam[which(BphageFam$Matching == "Matched"),],aes(x=SampleID, y=RPKM, fill=Virome))+
@@ -823,7 +824,7 @@ wilcox_result.pc
 
 ```
 #########################################
-#Fig E9
+#Fig. E9 - qPCR analysis of bacterial burden
 ```{r, warning = FALSE, message = FALSE}
 qPCR <-read.csv("../Data/R_input_files/qPCR_data_R.csv") %>%
   as_tibble()
@@ -886,7 +887,46 @@ wilcox.test(df[which(df$RT_group == 2),]$HI_qPCR, df[which(df$RT_group == 2),]$P
 chisq.test(df$Predominance, df$RT_group)
 
 ```
+#Fig. E10 - Network analysis; see online methods
+```{r, warning = FALSE, message = FALSE}
+knitr::include_graphics("../Data/R_input_files/Figure_E10.png")
 
+```
+#Fig. E11 - qPCR analysis of PsA burden (Eradication)
+```{r, warning = FALSE, message = FALSE}
+#Fig. E11####
+#Re-load data
+qPCR <-read.csv("../Data/R_input_files/qPCR_data_R.csv") %>%
+  as_tibble()
+
+qPCR_2 <- qPCR[grepl("GREEK", qPCR$Sample.Name, ignore.case = TRUE), ]
+
+long_qPCR_2 <- gather(qPCR_2, key = "Copies", value = "Value", PA_qPCR, HI_qPCR, X16S_copies)
+
+long_qPCR_2$Value_log <- log10(long_qPCR_2$Value + 1)
+
+long_qPCR_2$Copies<- factor(long_qPCR_2$Copies, levels = c("X16S_copies", "HI_qPCR", "PA_qPCR"))
+long_qPCR_2$Time.point<- factor(long_qPCR_2$Time.point, levels = c("Pre", "Post"))
+
+qPCR_plot_PA_erd <-ggplot(long_qPCR_2[which(long_qPCR_2$Copies == "PA_qPCR"),], aes(x = Time.point, y = Value_log)) +
+  geom_boxplot(outlier.shape = NA, fill = "#7FC97F")+ 
+  geom_line(aes(group = Patient))+ 
+  geom_point() + # You can change the type of plot based on your preference
+  #facet_wrap(~ Copies, scales = "free_y", labeller = labeller(RT_group = c("1" = "RT1", "2" = "RT2")))+
+  labs(x = "", y = expression(paste("log10 (16S P.aeruginosa gyrB gene copies /", mu, "l)"))) +  scale_x_discrete(labels = c("Pre", "Post"))+
+  scale_y_continuous(breaks = c(0, 1, 2, 3, 4,5,6))+
+  #scale_y_log10() +  # Add this line to set the y-axis to log scale
+  theme(
+    strip.background = element_rect(
+      color="white", fill="white", size=1, linetype="solid"),
+    strip.text.x = element_blank(),
+    panel.background = element_rect(fill = NA),
+    axis.line = element_line(size = 0.5, colour = "black"))
+qPCR_plot_PA_erd
+wilcox_result<-
+  wilcox.test(long_qPCR_2[which(long_qPCR_2$Copies== "PA_qPCR"),]$Value~long_qPCR_2[which(long_qPCR_2$Copies== "PA_qPCR"),]$Time.point, paired = TRUE, alternative = "two.sided")
+wilcox_result
+```
 
 #addendum: Spectral clustering / Robustness
 ```{r, warning = FALSE, message = FALSE}

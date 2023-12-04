@@ -2,7 +2,9 @@
 title: "Main_Figure_1"
 author: "Micheál Mac Aogáin"
 date: "2023-11-23"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -370,10 +372,10 @@ Figure_1bot<-ggarrange(D,NULL,F,E,NULL,G, font.label = list(size = 5),
 Figure_1<- ggarrange(Figure_1top, Figure_1bot, font.label = list(size = 5),
                            common.legend = FALSE,heights = c(0.35, 0.65), nrow =2)
 
-pdf(file = "../Data/R_output_files/Figure_1.pdf",   # The directory you want to save the file in
-   width = 10, # The width of the plot in inches
-  height = 12)
-Figure_1
-dev.off()
-Figure_1
+# pdf(file = "../Data/R_output_files/Figure_1.pdf",   # The directory you want to save the file in
+#    width = 10, # The width of the plot in inches
+#   height = 12)
+# Figure_1
+# dev.off()
+# Figure_1
 ```
