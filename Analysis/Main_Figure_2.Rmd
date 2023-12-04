@@ -2,7 +2,9 @@
 title: "Main_Figure_2"
 author: "Micheál Mac Aogáin"
 date: "2023-06-13"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -19,7 +21,7 @@ pacman::p_load(pacman, ggplot2, tidyverse, tidyr, lubridate, data.table, tsibble
 #Load data
 ```{r, warning = FALSE}
 ##Master data cross-sectional####
-Master <-read.csv("../Data/R_input_files//Clinical_AMR_Microbiome.csv") %>%
+Master <-read.csv("../Data/R_input_files//Clinical_AMR_Microbiome_R2.csv") %>%
   as_tibble()
 Master$FEVfactor<-cut(Master$FEV1, breaks=c(0, 30, 50, 70, Inf))
 
@@ -35,7 +37,7 @@ AMRFam$Aetiology_short <- factor(AMRFam$Aetiology_short, levels=c("idiopathic", 
 AMRFam$SampleID <- factor(AMRFam$SampleID, levels = AMRFam$SampleID[order(AMRFam$SC_AMR_alt)])
 AMRFam$FEVfactor<-fct_rev(AMRFam$FEVfactor)
 AMRFam <- AMRFam %>%
-  gather(Resistome, RPKM, starts_with(c("Acridine.dye", "Aminocoumarin.antibiotic", "Aminoglycoside", "Antibacterial.free.fatty.acids", "Beta.lactam", "Bicyclomycin", "Diaminopyrimidine", "Fluoroquinolone", "Fosfomycin", "Fusidic.acid", "MLS", "Multidrug", "Mupirocin", "Nitroimidazole.antibiotic", "Nucleoside.antibiotic", "Peptide.antibiotic", "Phenicol", "Rifampicin", "Sulfonamide.antibiotic", "Tetracycline", "Triclosan")), -SampleID, -Country, -Continent, -Matching, -Paired, -Trio, -Age, -Sex..Male.0..Female.1., -Exacerbations, -ExacerbatorState, -FEV1, -BSI, -ICS.use, -BMI, -Aetiology, -Aetiology_short, -MMRC.score, -SC_AMR_alt, -FEVfactor)
+  gather(Resistome, RPKM, starts_with(c("Acridine.dye", "Aminocoumarin.antibiotic", "Aminoglycoside", "Antibacterial.free.fatty.acids", "Beta.lactam", "Bicyclomycin", "Diaminopyrimidine", "Fluoroquinolone", "Fosfomycin", "Fusidic.acid", "MLS", "Multidrug", "Mupirocin", "Nitroimidazole.antibiotic", "Nucleoside.antibiotic", "Peptide.antibiotic", "Phenicol", "Rifampicin", "Sulfonamide.antibiotic", "Tetracycline", "Triclosan")), -SampleID, -Country, -Continent, -Matching, -Paired, -Trio, -Age, -Sex..Male.0..Female.1., -Exacerbations, -ExacerbatorState, -FEV1, -BSI, -ICS.use, -BMI, -Ethnicity, -Aetiology_short, -MMRC.score, -SC_AMR_alt, -FEVfactor)
 
 AMRFam$CTRL<-ifelse(is.na(AMRFam$BSI), "CTRL", "PATIENT")
 ```

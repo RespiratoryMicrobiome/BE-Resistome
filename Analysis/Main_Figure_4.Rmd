@@ -2,7 +2,9 @@
 title: "Main_Figure_4"
 author: "Micheál Mac Aogáin"
 date: "2023-06-13"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 #Knitr setup
 ```{r setup, include=TRUE}
@@ -12,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r message=FALSE, warning=FALSE}
 # Load required R packages
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(ggplot2, tidyverse, vegan, vcd, knitr,funrar,pheatmap,colorspace,ggpubr)
+pacman::p_load(ggplot2, tidyverse, vegan, vcd, knitr,funrar,pheatmap,colorspace,ggpubr, dplyr)
 ```
 
 #Figure 4A Heatmap by Ivan
@@ -39,9 +41,9 @@ ab_data[is.nan(ab_data)] <- 0
 ab_data<-as.data.frame(ab_data)
 
 #Master data####
-Master <-read.csv("../Data/R_input_files/Clinical_AMR_Microbiome.csv") %>%
+Master <-read.csv("../Data/R_input_files//Clinical_AMR_Microbiome_R2.csv") %>%
   as_tibble() %>%
-  filter(SC_AMR_alt != 0)
+  dplyr::filter(SC_AMR_alt != 0)
 ab_data <- subset(ab_data, rownames(ab_data) %in% Master$SampleID)
 #RT1 and RT2
 

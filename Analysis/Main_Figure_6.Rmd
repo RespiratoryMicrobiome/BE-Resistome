@@ -2,7 +2,9 @@
 title: "Main_Figure_6"
 author: "Micheál Mac Aogáin"
 date: "2023-11-23"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 #Knitr setup
 ```{r setup, include=TRUE}
